@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -18,8 +19,14 @@ public class Joya {
 
 
     private String nombre;
-    private Integer stock;
+
+    private String categoria;
+    private LocalDate fechaAdquisicion;
+
     private Integer precio;
+    private Integer precioOferta;
+    private Integer stock;
+
     private Double largo;
     private Double peso;
 

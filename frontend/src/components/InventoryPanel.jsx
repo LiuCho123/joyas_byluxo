@@ -3,14 +3,21 @@ import logoByLuxo from '../assets/logo.jpeg';
 
 const InventoryPanel = () => {
     const [inventory, setInventory] = useState([]);
+
+    // Filtros
     const [searchTerm, setSearchTerm] = useState('');
+    const [filtroCategoria, setFiltroCategoria] = useState('');
+    const [filtroIgEstado, setFiltroIgEstado] = useState('');
+    const [soloOfertas, setSoloOfertas] = useState(false);
+    const [ocultarVendidos, setOcultarVendidos] = useState(true);
 
     // Estados del Modal
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('fisica'); // 'fisica' | 'redes'
 
     const [formData, setFormData] = useState({
-        id: null, nombre: '', stock: 1, precio: '', largo: '', peso: '', fotoUrl: '',
+        id: null, nombre: '', stock: 1, precio: '', precioOferta: '', largo: '', peso: '', fotoUrl: '',
+        categoria: '', fechaAdquisicion: '',
         estadoRedes: {
             igEstado: 'No subido', igUltimaFecha: '', igFormato: '',
             tkEstado: 'No subido', tkUltimaFecha: '', tkFormato: '',
@@ -25,6 +32,7 @@ const InventoryPanel = () => {
 
     const cargarInventario = async () => {
         try {
+            // Usa tu URL de Vercel/Render si estás en prod, o localhost si estás probando localmente
             const response = await fetch('https://joyas-byluxo.onrender.com/api/joyas');
             if (response.ok) {
                 const data = await response.json();
@@ -37,8 +45,6 @@ const InventoryPanel = () => {
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;
-
-        // Manejo de datos anidados para el Ecosistema RRSS
         if (name.startsWith('estadoRedes.')) {
             const field = name.split('.')[1];
             setFormData(prev => ({
@@ -59,6 +65,7 @@ const InventoryPanel = () => {
                 body: JSON.stringify({
                     ...formData,
                     precio: Number(formData.precio),
+                    precioOferta: formData.precioOferta ? Number(formData.precioOferta) : null,
                     largo: Number(formData.largo),
                     peso: Number(formData.peso),
                     stock: parseInt(formData.stock) || 0
@@ -74,7 +81,6 @@ const InventoryPanel = () => {
         }
     };
 
-    // Función para eliminar de forma segura
     const handleEliminar = async (id) => {
         if (window.confirm("¿Estás seguro de eliminar esta joya de forma permanente? Esta acción no se puede deshacer.")) {
             try {
@@ -90,15 +96,40 @@ const InventoryPanel = () => {
         }
     };
 
+    // EL BOTÓN MÁGICO DE DESCARGA
+    const descargarExcel = async () => {
+        try {
+            const res = await fetch('https://joyas-byluxo.onrender.com/api/joyas/exportar/excel');
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Joyas_ByLuxo.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } else {
+                alert('Error al generar el Excel desde el servidor.');
+            }
+        } catch (error) {
+            console.error('Error descargando el archivo:', error);
+        }
+    };
+
     const abrirParaEditar = (joya) => {
         setFormData({
             id: joya.id,
             nombre: joya.nombre || '',
-            stock: joya.stock || 0,
+            stock: joya.stock !== undefined ? joya.stock : 1,
             precio: joya.precio || '',
+            precioOferta: joya.precioOferta || '',
             largo: joya.largo || '',
             peso: joya.peso || '',
             fotoUrl: joya.fotoUrl || '',
+            categoria: joya.categoria || '',
+            fechaAdquisicion: joya.fechaAdquisicion || '',
             estadoRedes: joya.estadoRedes || {
                 igEstado: 'No subido', igUltimaFecha: '', igFormato: '',
                 tkEstado: 'No subido', tkUltimaFecha: '', tkFormato: '',
@@ -113,7 +144,8 @@ const InventoryPanel = () => {
     const cerrarModal = () => {
         setIsModalOpen(false);
         setFormData({
-            id: null, nombre: '', stock: 1, precio: '', largo: '', peso: '', fotoUrl: '',
+            id: null, nombre: '', stock: 1, precio: '', precioOferta: '', largo: '', peso: '', fotoUrl: '',
+            categoria: '', fechaAdquisicion: '',
             estadoRedes: {
                 igEstado: 'No subido', igUltimaFecha: '', igFormato: '',
                 tkEstado: 'No subido', tkUltimaFecha: '', tkFormato: '',
@@ -123,9 +155,16 @@ const InventoryPanel = () => {
         });
     };
 
-    const filteredInventory = inventory.filter(joya =>
-        joya.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Lógica de Filtros Múltiples
+    const filteredInventory = inventory.filter(joya => {
+        const matchesSearch = joya.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategoria = filtroCategoria === '' || joya.categoria === filtroCategoria;
+        const matchesIg = filtroIgEstado === '' || (joya.estadoRedes && joya.estadoRedes.igEstado === filtroIgEstado);
+        const matchesOferta = soloOfertas ? (joya.precioOferta > 0) : true;
+        const matchesStock = ocultarVendidos ? (joya.stock > 0) : true;
+
+        return matchesSearch && matchesCategoria && matchesIg && matchesOferta && matchesStock;
+    });
 
     const getStatusColor = (estado) => {
         if (estado === 'Activo') return 'text-green-400 bg-green-400/10 border-green-500/30';
@@ -137,8 +176,8 @@ const InventoryPanel = () => {
     return (
         <div className="max-w-7xl mx-auto p-6 bg-zinc-950 text-gray-200 rounded-xl shadow-2xl border border-zinc-800 font-sans mt-6 relative">
 
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6 pb-6 border-b border-zinc-800">
+            {/* Header y Botones Maestros */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-6 border-b border-zinc-800 gap-4">
                 <div className="flex items-center gap-4">
                     <img src={logoByLuxo} alt="Joyas byLuxo" className="w-16 h-16 object-cover rounded-full border border-zinc-700 shadow-md" />
                     <div>
@@ -146,16 +185,54 @@ const InventoryPanel = () => {
                         <p className="text-sm text-zinc-500">Logística de Plata 925 y Ecosistema de Redes</p>
                     </div>
                 </div>
-                <button onClick={() => { cerrarModal(); setIsModalOpen(true); }} className="bg-white text-black hover:bg-zinc-200 font-bold tracking-widest py-3 px-6 rounded transition-colors shadow-lg text-sm">
-                    + NUEVA JOYA
-                </button>
+                <div className="flex gap-3 w-full md:w-auto">
+                    <button onClick={descargarExcel} className="flex-1 md:flex-none bg-green-600/20 text-green-400 border border-green-600/50 hover:bg-green-600/30 font-bold tracking-widest py-3 px-6 rounded transition-colors text-sm shadow-lg flex items-center justify-center gap-2">
+                        📊 EXPORTAR EXCEL
+                    </button>
+                    <button onClick={() => { cerrarModal(); setIsModalOpen(true); }} className="flex-1 md:flex-none bg-white text-black hover:bg-zinc-200 font-bold tracking-widest py-3 px-6 rounded transition-colors shadow-lg text-sm">
+                        + NUEVA JOYA
+                    </button>
+                </div>
             </div>
 
-            {/* Buscador */}
-            <div className="mb-6 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
-                <div className="flex flex-col">
+            {/* Panel de Filtros */}
+            <div className="mb-6 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div className="flex flex-col md:col-span-2">
                     <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">🔍 Buscar Joya</label>
                     <input type="text" placeholder="Ej: Cadena Grumet..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2.5 bg-zinc-800/80 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400 transition-colors"/>
+                </div>
+                <div className="flex flex-col">
+                    <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">📂 Categoría</label>
+                    <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="w-full p-2.5 bg-zinc-800/80 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400">
+                        <option value="">Todas</option>
+                        <option value="Cadena">Cadena</option>
+                        <option value="Pulsera">Pulsera</option>
+                        <option value="Aro">Aro</option>
+                        <option value="Tobillera">Tobillera</option>
+                        <option value="Colgante">Colgante</option>
+                        <option value="Anillo">Anillo</option>
+                    </select>
+                </div>
+                <div className="flex flex-col">
+                    <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">📱 Estado IG</label>
+                    <select value={filtroIgEstado} onChange={(e) => setFiltroIgEstado(e.target.value)} className="w-full p-2.5 bg-zinc-800/80 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400">
+                        <option value="">Todos</option>
+                        <option value="Activo">Activo</option>
+                        <option value="Archivado">Archivado</option>
+                        <option value="No subido">No subido</option>
+                    </select>
+                </div>
+
+                {/* Checkboxes de Filtro Rápido */}
+                <div className="md:col-span-4 flex flex-wrap gap-6 pt-2 border-t border-zinc-800/50">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-zinc-300 hover:text-white transition-colors">
+                        <input type="checkbox" checked={soloOfertas} onChange={(e) => setSoloOfertas(e.target.checked)} className="w-4 h-4 accent-white bg-zinc-800 border-zinc-700 rounded cursor-pointer" />
+                        🔥 Ver solo joyas en Oferta
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-zinc-300 hover:text-white transition-colors">
+                        <input type="checkbox" checked={ocultarVendidos} onChange={(e) => setOcultarVendidos(e.target.checked)} className="w-4 h-4 accent-white bg-zinc-800 border-zinc-700 rounded cursor-pointer" />
+                        👁️ Ocultar Agotados (Stock 0)
+                    </label>
                 </div>
             </div>
 
@@ -165,12 +242,11 @@ const InventoryPanel = () => {
                     <thead>
                     <tr className="bg-zinc-900 border-b border-zinc-800">
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">Foto</th>
-                        <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Nombre de la Joya</th>
+                        <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Nombre y Detalles</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">Stock</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Precio</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">Instagram</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">TikTok</th>
-                        <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">Marketplace</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">WSP Catálogo</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-right">Acciones</th>
                     </tr>
@@ -189,21 +265,29 @@ const InventoryPanel = () => {
                                 </td>
                                 <td className="p-3 text-sm font-medium text-zinc-200">
                                     {joya.nombre}
-                                    <div className="text-[10px] text-zinc-500">{joya.largo}cm • {joya.peso}g</div>
+                                    <div className="text-[10px] text-zinc-500 mt-0.5">
+                                        <span className="font-bold text-zinc-400">{joya.categoria || 'Sin Cat.'}</span> • {joya.largo}cm • {joya.peso}g
+                                    </div>
                                 </td>
                                 <td className="p-3 text-sm text-center">
                                     <span className={`font-bold ${joya.stock === 0 ? 'text-red-400' : 'text-zinc-300'}`}>{joya.stock}</span>
                                 </td>
-                                <td className="p-3 text-sm text-zinc-300">${joya.precio.toLocaleString('es-CL')}</td>
+                                <td className="p-3 text-sm text-zinc-300">
+                                    {joya.precioOferta > 0 ? (
+                                        <div>
+                                            <span className="text-red-400 font-bold line-through text-xs block">${joya.precio.toLocaleString('es-CL')}</span>
+                                            <span className="text-green-400 font-bold text-base">${joya.precioOferta.toLocaleString('es-CL')}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="font-medium">${joya.precio.toLocaleString('es-CL')}</span>
+                                    )}
+                                </td>
 
                                 <td className="p-3 text-center">
                                     <span className={`px-2 py-1 text-[10px] border rounded font-semibold tracking-wide ${getStatusColor(redes.igEstado)}`}>{redes.igEstado || 'N/A'}</span>
                                 </td>
                                 <td className="p-3 text-center">
                                     <span className={`px-2 py-1 text-[10px] border rounded font-semibold tracking-wide ${getStatusColor(redes.tkEstado)}`}>{redes.tkEstado || 'N/A'}</span>
-                                </td>
-                                <td className="p-3 text-center">
-                                    <span className={`px-2 py-1 text-[10px] border rounded font-semibold tracking-wide ${getStatusColor(redes.mkpEstado)}`}>{redes.mkpEstado || 'N/A'}</span>
                                 </td>
                                 <td className="p-3 text-center">
                                     <span className={`px-2 py-1 text-[10px] border rounded font-semibold tracking-wide ${getStatusColor(redes.wspCatalogo)}`}>{redes.wspCatalogo || 'N/A'}</span>
@@ -222,7 +306,7 @@ const InventoryPanel = () => {
                 </table>
                 {filteredInventory.length === 0 && (
                     <div className="p-8 text-center text-zinc-500">
-                        No se encontraron joyas en el inventario.
+                        No se encontraron joyas que coincidan con los filtros.
                     </div>
                 )}
             </div>
@@ -245,7 +329,7 @@ const InventoryPanel = () => {
                                 onClick={(e) => { e.preventDefault(); setActiveTab('fisica'); }}
                                 className={`px-4 py-2 text-sm font-bold tracking-wide rounded ${activeTab === 'fisica' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
                             >
-                                📦 INFO FÍSICA
+                                📦 INFO FÍSICA Y COMERCIAL
                             </button>
                             <button
                                 onClick={(e) => { e.preventDefault(); setActiveTab('redes'); }}
@@ -257,24 +341,47 @@ const InventoryPanel = () => {
 
                         <form onSubmit={handleGuardar} className="flex flex-col gap-5">
 
-                            {/* TAB: INFO FÍSICA */}
+                            {/* TAB: INFO FÍSICA Y COMERCIAL */}
                             {activeTab === 'fisica' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="flex flex-col md:col-span-2">
                                         <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Nombre</label>
                                         <input type="text" name="nombre" required value={formData.nombre} onChange={handleFormChange} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400" />
                                     </div>
-                                    <div className="flex flex-col md:col-span-2">
-                                        <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Link de la Foto (URL)</label>
-                                        <input type="text" name="fotoUrl" value={formData.fotoUrl} onChange={handleFormChange} placeholder="Ej: https://instagram.com/..." className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400" />
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Categoría</label>
+                                        <select name="categoria" value={formData.categoria} onChange={handleFormChange} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400">
+                                            <option value="">-- Seleccionar --</option>
+                                            <option value="Cadena">Cadena</option>
+                                            <option value="Pulsera">Pulsera</option>
+                                            <option value="Aro">Aro</option>
+                                            <option value="Tobillera">Tobillera</option>
+                                            <option value="Colgante">Colgante</option>
+                                            <option value="Anillo">Anillo</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Fecha de Adquisición (Stock)</label>
+                                        <input type="date" name="fechaAdquisicion" value={formData.fechaAdquisicion} onChange={handleFormChange} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 text-sm focus:outline-none focus:border-zinc-400" />
+                                    </div>
+
+                                    <div className="md:col-span-2 border-t border-zinc-800 my-2 pt-2"></div>
+
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Precio Base ($)</label>
+                                        <input type="number" name="precio" required value={formData.precio} onChange={handleFormChange} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-green-400 uppercase tracking-wider mb-1 pl-1 font-bold">Precio Oferta ($) <span className="text-zinc-500 font-normal lowercase">- Opcional</span></label>
+                                        <input type="number" name="precioOferta" placeholder="Si hay oferta..." value={formData.precioOferta} onChange={handleFormChange} className="p-2.5 bg-zinc-900/50 border border-green-800/50 rounded text-green-400 text-sm focus:outline-none focus:border-green-500 placeholder:text-zinc-600" />
                                     </div>
                                     <div className="flex flex-col">
                                         <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Stock</label>
                                         <input type="number" name="stock" required value={formData.stock} onChange={handleFormChange} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400" min="0" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Precio ($)</label>
-                                        <input type="number" name="precio" required value={formData.precio} onChange={handleFormChange} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400" />
+                                        <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Link Foto (URL)</label>
+                                        <input type="text" name="fotoUrl" value={formData.fotoUrl} onChange={handleFormChange} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-400 text-sm focus:outline-none focus:border-zinc-400" />
                                     </div>
                                     <div className="flex flex-col">
                                         <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Largo (cm)</label>
