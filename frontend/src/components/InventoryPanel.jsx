@@ -247,6 +247,7 @@ const InventoryPanel = () => {
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider">Precio</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">Instagram</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">TikTok</th>
+                        <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">Marketplace</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center">WSP Catálogo</th>
                         <th className="p-3 text-xs font-bold text-zinc-400 uppercase tracking-wider text-right">Acciones</th>
                     </tr>
@@ -288,6 +289,9 @@ const InventoryPanel = () => {
                                 </td>
                                 <td className="p-3 text-center">
                                     <span className={`px-2 py-1 text-[10px] border rounded font-semibold tracking-wide ${getStatusColor(redes.tkEstado)}`}>{redes.tkEstado || 'N/A'}</span>
+                                </td>
+                                <td className="p-3 text-center">
+                                    <span className={`px-2 py-1 text-[10px] border rounded font-semibold tracking-wide ${getStatusColor(redes.mkpEstado)}`}>{redes.mkpEstado || 'N/A'}</span>
                                 </td>
                                 <td className="p-3 text-center">
                                     <span className={`px-2 py-1 text-[10px] border rounded font-semibold tracking-wide ${getStatusColor(redes.wspCatalogo)}`}>{redes.wspCatalogo || 'N/A'}</span>

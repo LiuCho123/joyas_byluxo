@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import StatsGenerator from './components/StatsGenerator';
 import InventoryPanel from './components/InventoryPanel';
 import FinancialPanel from './components/FinancialPanel';
+import ContentGallery from './components/ContentGallery';
 
 // TRUCO MAESTRO: Interceptar todas las llamadas al backend e inyectar la clave
 const originalFetch = window.fetch;
@@ -17,6 +18,7 @@ window.fetch = async (resource, config = {}) => {
 };
 
 function App() {
+    // Usamos consistentemente currentView
     const [currentView, setCurrentView] = useState('inventory');
 
     // Estados de Seguridad
@@ -105,6 +107,9 @@ function App() {
                     <button onClick={() => setCurrentView('financial')} className={`px-4 md:px-6 py-2 rounded font-bold tracking-widest text-xs md:text-sm transition-colors ${currentView === 'financial' ? 'bg-white text-black shadow-md' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}>CONTABILIDAD</button>
                     <button onClick={() => setCurrentView('stats')} className={`px-4 md:px-6 py-2 rounded font-bold tracking-widest text-xs md:text-sm transition-colors ${currentView === 'stats' ? 'bg-white text-black shadow-md' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}>STATS RRSS</button>
 
+                    {/* Botón corregido con la misma variable y diseño */}
+                    <button onClick={() => setCurrentView('galeria')} className={`px-4 md:px-6 py-2 rounded font-bold tracking-widest text-xs md:text-sm transition-colors ${currentView === 'galeria' ? 'bg-white text-black shadow-md' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}>CONTENIDO</button>
+
                     <button onClick={handleLogout} className="absolute right-0 text-zinc-600 hover:text-red-500 transition-colors text-xs font-bold uppercase hidden md:block">
                         Cerrar Sesión
                     </button>
@@ -120,6 +125,9 @@ function App() {
                 {currentView === 'inventory' && <InventoryPanel />}
                 {currentView === 'financial' && <FinancialPanel />}
                 {currentView === 'stats' && <StatsGenerator />}
+
+                {/* Renderizado corregido */}
+                {currentView === 'galeria' && <ContentGallery />}
             </div>
         </div>
     );

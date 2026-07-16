@@ -2,7 +2,9 @@ package com.liucho.backend.Service;
 
 import com.liucho.backend.Model.EstadoRedes;
 import com.liucho.backend.Model.Joya;
+import com.liucho.backend.Model.Transaccion;
 import com.liucho.backend.Repository.JoyaRepository;
+import com.liucho.backend.Repository.TransaccionRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +13,10 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ExcelExportService {
@@ -19,19 +24,13 @@ public class ExcelExportService {
     @Autowired
     private JoyaRepository joyaRepository;
 
-    public ByteArrayInputStream exportarJoyas() throws IOException {
-        String[] columns = {
-                "Nombre", "Largo", "Peso", "Precio", "Oferta", "Stock", "Categoría",
-                "Estado Instagram", "Ult. Fecha IG", "Formato IG",
-                "Estado Tiktok", "Ult. Fecha TikTok", "Formato TikTok",
-                "Estado Marketplace", "Ult. Fecha Subida", "Conversación Marketplace",
-                "Catalogo Whatsapp", "Estado Whatsapp"
-        };
+    @Autowired
+    private TransaccionRepository transaccionRepository;
 
+    public ByteArrayInputStream exportarExcelCompleto() throws IOException {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet("Hoja1");
 
-            // Estilo de la cabecera (Fondo negro, texto blanco)
+            // --- ESTILOS ---
             Font headerFont = workbook.createFont();
             headerFont.setBold(true);
             headerFont.setColor(IndexedColors.WHITE.getIndex());
@@ -40,20 +39,29 @@ public class ExcelExportService {
             headerCellStyle.setFillForegroundColor(IndexedColors.BLACK.getIndex());
             headerCellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-            // Crear la fila de cabecera
-            Row headerRow = sheet.createRow(0);
-            for (int col = 0; col < columns.length; col++) {
-                Cell cell = headerRow.createCell(col);
-                cell.setCellValue(columns[col]);
+            // ==========================================
+            // HOJA 1: INVENTARIO DE JOYAS
+            // ==========================================
+            String[] colJoyas = {
+                    "Nombre", "Largo", "Peso", "Precio", "Oferta", "Stock", "Categoría",
+                    "Estado Instagram", "Ult. Fecha IG", "Formato IG",
+                    "Estado Tiktok", "Ult. Fecha TikTok", "Formato TikTok",
+                    "Estado Marketplace", "Ult. Fecha Subida", "Conversación Marketplace",
+                    "Catalogo Whatsapp", "Estado Whatsapp"
+            };
+
+            Sheet sheetJoyas = workbook.createSheet("Joyas");
+            Row rowCabeceraJoyas = sheetJoyas.createRow(0);
+            for (int col = 0; col < colJoyas.length; col++) {
+                Cell cell = rowCabeceraJoyas.createCell(col);
+                cell.setCellValue(colJoyas[col]);
                 cell.setCellStyle(headerCellStyle);
             }
 
-            // Llenar datos
             List<Joya> joyas = joyaRepository.findAll();
-            int rowIdx = 1;
+            int rowIdxJ = 1;
             for (Joya joya : joyas) {
-                Row row = sheet.createRow(rowIdx++);
-
+                Row row = sheetJoyas.createRow(rowIdxJ++);
                 row.createCell(0).setCellValue(joya.getNombre() != null ? joya.getNombre() : "");
                 row.createCell(1).setCellValue(joya.getLargo() != null ? joya.getLargo() + "cm" : "");
                 row.createCell(2).setCellValue(joya.getPeso() != null ? joya.getPeso() + "g" : "");
@@ -77,9 +85,62 @@ public class ExcelExportService {
                     row.createCell(17).setCellValue(redes.getWspUltimaFecha() != null ? redes.getWspUltimaFecha() : "");
                 }
             }
+            for (int i = 0; i < colJoyas.length; i++) sheetJoyas.autoSizeColumn(i);
 
-            for (int i = 0; i < columns.length; i++) {
-                sheet.autoSizeColumn(i);
+            // ==========================================
+            // HOJAS 2+: FLUJOS MENSUALES
+            // ==========================================
+            String[] colFlujo = {"Fecha", "Tipo", "Categoria", "Detalle", "Entra", "Sale", "Saldo real", "Contabilidad (Comisión 10%)"};
+
+            List<Transaccion> todasTransacciones = transaccionRepository.findAll();
+
+            // Agrupar transacciones por Mes y Año (ej. "2026-07")
+            Map<String, List<Transaccion>> transPorMes = todasTransacciones.stream()
+                    .filter(t -> t.getFecha() != null)
+                    .collect(Collectors.groupingBy(t -> {
+                        String mes = t.getFecha().getMonth().name();
+                        return "Flujo " + mes.substring(0, 1) + mes.substring(1).toLowerCase(); // Ej: "Flujo July"
+                    }));
+
+            for (Map.Entry<String, List<Transaccion>> entry : transPorMes.entrySet()) {
+                Sheet sheetFlujo = workbook.createSheet(entry.getKey());
+                Row rowCabeceraFlujo = sheetFlujo.createRow(0);
+                for (int col = 0; col < colFlujo.length; col++) {
+                    Cell cell = rowCabeceraFlujo.createCell(col);
+                    cell.setCellValue(colFlujo[col]);
+                    cell.setCellStyle(headerCellStyle);
+                }
+
+                int rowIdxF = 1;
+                int saldoAcumulado = 0;
+
+                // Ordenar por fecha cronológica antes de imprimir
+                List<Transaccion> transOrdenadas = entry.getValue();
+                transOrdenadas.sort((t1, t2) -> t1.getFecha().compareTo(t2.getFecha()));
+
+                for (Transaccion t : transOrdenadas) {
+                    Row row = sheetFlujo.createRow(rowIdxF++);
+                    row.createCell(0).setCellValue(t.getFecha().format(DateTimeFormatter.ofPattern("dd-MM-yyyy")));
+                    row.createCell(1).setCellValue(t.getTipo() != null ? t.getTipo() : "");
+                    row.createCell(2).setCellValue(t.getCategoria() != null ? t.getCategoria() : "");
+                    row.createCell(3).setCellValue(t.getDetalle() != null ? t.getDetalle() : "");
+
+                    int entra = t.getEntra() != null ? t.getEntra() : 0;
+                    int sale = t.getSale() != null ? t.getSale() : 0;
+                    saldoAcumulado = saldoAcumulado + entra - sale;
+
+                    row.createCell(4).setCellValue(entra);
+                    row.createCell(5).setCellValue(sale);
+                    row.createCell(6).setCellValue(saldoAcumulado);
+
+                    // Columna de comisión 10% (solo si aplica y no es null)
+                    if (t.getComision() != null && t.getComision() > 0) {
+                        row.createCell(7).setCellValue(t.getComision());
+                    } else {
+                        row.createCell(7).setCellValue("");
+                    }
+                }
+                for (int i = 0; i < colFlujo.length; i++) sheetFlujo.autoSizeColumn(i);
             }
 
             workbook.write(out);
