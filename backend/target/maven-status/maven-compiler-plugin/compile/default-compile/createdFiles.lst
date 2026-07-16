@@ -1,0 +1,11 @@
+com\liucho\backend\Model\Joya.class
+com\liucho\backend\Model\EstadoRedes.class
+com\liucho\backend\Model\ItemVenta.class
+com\liucho\backend\Controller\JoyaController.class
+com\liucho\backend\Service\TransaccionService.class
+com\liucho\backend\Controller\TransaccionController.class
+com\liucho\backend\Repository\TransaccionRepository.class
+com\liucho\backend\Repository\JoyaRepository.class
+com\liucho\backend\BackendApplication.class
+com\liucho\backend\Model\Transaccion.class
+com\liucho\backend\Security\SecurityConfig.class
