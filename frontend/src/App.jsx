@@ -37,7 +37,7 @@ function App() {
 
         try {
             // Tocamos la puerta del backend para ver si abre
-            const res = await fetch('http://localhost:8080/api/joyas', {
+            const res = await fetch('https://joyas-byluxo.onrender.com/api/joyas', {
                 headers: { 'Authorization': `Basic ${token}` }
             });
 

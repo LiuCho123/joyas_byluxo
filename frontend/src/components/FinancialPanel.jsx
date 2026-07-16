@@ -21,7 +21,7 @@ const FinancialPanel = () => {
     const cargarDatos = async () => {
         try {
             // Cargar transacciones
-            const resTrans = await fetch('http://localhost:8080/api/transacciones');
+            const resTrans = await fetch('https://joyas-byluxo.onrender.com/api/transacciones');
             if (resTrans.ok) {
                 const data = await resTrans.json();
                 // Ordenar por ID o fecha para el cálculo del saldo acumulado
@@ -29,7 +29,7 @@ const FinancialPanel = () => {
             }
 
             // Cargar joyas activas para el buscador del carrito
-            const resJoyas = await fetch('http://localhost:8080/api/joyas');
+            const resJoyas = await fetch('https://joyas-byluxo.onrender.com/api/joyas');
             if (resJoyas.ok) {
                 const data = await resJoyas.json();
                 setJoyasDisponibles(data.filter(j => j.stock > 0));
@@ -110,7 +110,7 @@ const FinancialPanel = () => {
         }
 
         try {
-            const res = await fetch('http://localhost:8080/api/transacciones', {
+            const res = await fetch('https://joyas-byluxo.onrender.com/api/transacciones', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
