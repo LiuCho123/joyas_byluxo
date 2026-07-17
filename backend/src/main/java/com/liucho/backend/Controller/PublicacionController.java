@@ -29,6 +29,21 @@ public class PublicacionController {
         return publicacionService.registrarPublicacion(publicacion);
     }
 
+    // NUEVO: Método para editar los detalles de un video ya subido
+    @PutMapping("/{id}")
+    public Publicacion editarVideo(@PathVariable Long id, @RequestBody Publicacion datosActualizados){
+        return publicacionRepository.findById(id).map(pub -> {
+            pub.setTitulo(datosActualizados.getTitulo());
+            pub.setPlataforma(datosActualizados.getPlataforma());
+            pub.setFormato(datosActualizados.getFormato());
+            pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
+
+            pub.setJoyas(datosActualizados.getJoyas());
+
+            return publicacionRepository.save(pub);
+        }).orElseThrow(() -> new RuntimeException("Publicación no encontrada"));
+    }
+
     @PutMapping("/{id}/metricas")
     public Publicacion actualizarMetricas(@PathVariable Long id, @RequestBody Publicacion metricas){
         return publicacionService.actualizarMetricas(id,metricas);
