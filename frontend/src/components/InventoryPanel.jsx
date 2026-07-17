@@ -168,8 +168,9 @@ const InventoryPanel = () => {
 
     const getStatusColor = (estado) => {
         if (estado === 'Activo') return 'text-green-400 bg-green-400/10 border-green-500/30';
-        if (estado === 'Archivado') return 'text-red-400 bg-red-400/10 border-red-500/30';
-        if (estado === 'No subido') return 'text-yellow-400 bg-yellow-400/10 border-yellow-500/30';
+        if (estado === 'No subido') return 'text-red-400 bg-red-400/10 border-red-500/30';
+        if (estado === 'Falta actualizar') return 'text-yellow-400 bg-yellow-400/10 border-yellow-500/30';
+        if (estado === 'Archivado') return 'text-zinc-500 bg-zinc-800/50 border-zinc-700';
         return 'text-zinc-500 bg-zinc-800/50 border-zinc-700';
     };
 

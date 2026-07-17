@@ -22,6 +22,8 @@ public class Publicacion {
     private LocalDate fechaPublicacion;
     private String estado;
 
+    private Integer cantidadFotos;
+
     private Integer reproducciones = 0;
     private Integer likes = 0;
     private Integer comentarios = 0;

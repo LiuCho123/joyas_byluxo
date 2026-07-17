@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, MessageCircle, Heart, Bookmark, Share2, Play, Plus, X, Camera, Video, Trash2 } from 'lucide-react';
+import { RefreshCw, MessageCircle, Heart, Bookmark, Share2, Play, Plus, X, Camera, Video, Trash2, Pencil } from 'lucide-react';
 import logoByLuxo from '../assets/logo.jpeg';
 
 const ContentGallery = () => {
@@ -9,8 +9,16 @@ const ContentGallery = () => {
     const [isGenerating, setIsGenerating] = useState(false);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+
     const hoy = new Date().toISOString().split('T')[0];
-    const [nuevoVideo, setNuevoVideo] = useState({ titulo: '', plataforma: 'Instagram', formato: 'Reel', fechaPublicacion: hoy });
+    const [nuevoVideo, setNuevoVideo] = useState({
+        titulo: '',
+        plataforma: 'Instagram',
+        formato: 'Reel',
+        fechaPublicacion: hoy,
+        cantidadFotos: ''
+    });
     const [joyasSeleccionadas, setJoyasSeleccionadas] = useState([]);
 
     useEffect(() => {
@@ -35,22 +43,35 @@ const ContentGallery = () => {
         }
     };
 
-    // --- LÓGICA ELIMINAR VIDEO ---
     const handleEliminarVideo = async (id) => {
         if (!window.confirm("¿Seguro que deseas eliminar este video del registro?")) return;
-
         try {
-            const res = await fetch(`https://joyas-byluxo1.onrender.com/api/publicaciones/${id}`, {
-                method: 'DELETE'
-            });
-            if (res.ok) {
-                cargarDatos();
-            } else {
-                alert("Error al eliminar el video. Revisa el servidor.");
-            }
+            const res = await fetch(`https://joyas-byluxo1.onrender.com/api/publicaciones/${id}`, { method: 'DELETE' });
+            if (res.ok) cargarDatos();
+            else alert("Error al eliminar el video. Revisa el servidor.");
         } catch (error) {
             console.error("Error al eliminar:", error);
         }
+    };
+
+    const abrirParaEditar = (pub) => {
+        setEditingId(pub.id);
+        setNuevoVideo({
+            titulo: pub.titulo,
+            plataforma: pub.plataforma,
+            formato: pub.formato,
+            fechaPublicacion: pub.fechaPublicacion || hoy,
+            cantidadFotos: pub.cantidadFotos || ''
+        });
+        setJoyasSeleccionadas(pub.joyas ? pub.joyas.map(j => j.id) : []);
+        setIsModalOpen(true);
+    };
+
+    const cerrarModal = () => {
+        setNuevoVideo({ titulo: '', plataforma: 'Instagram', formato: 'Reel', fechaPublicacion: hoy, cantidadFotos: '' });
+        setJoyasSeleccionadas([]);
+        setEditingId(null);
+        setIsModalOpen(false);
     };
 
     const toggleJoyaSeleccionada = (id) => {
@@ -66,24 +87,30 @@ const ContentGallery = () => {
             titulo: nuevoVideo.titulo,
             plataforma: nuevoVideo.plataforma,
             formato: nuevoVideo.formato,
+            fechaPublicacion: nuevoVideo.fechaPublicacion,
+            cantidadFotos: nuevoVideo.formato.includes('Carrusel') ? Number(nuevoVideo.cantidadFotos) : null,
             joyas: joyasSeleccionadas.map(id => ({ id: Number(id) }))
         };
 
         try {
-            const response = await fetch('https://joyas-byluxo1.onrender.com/api/publicaciones', {
-                method: 'POST',
+            const url = editingId
+                ? `https://joyas-byluxo1.onrender.com/api/publicaciones/${editingId}`
+                : 'https://joyas-byluxo1.onrender.com/api/publicaciones';
+
+            const method = editingId ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
             if (response.ok) {
-                setNuevoVideo({ titulo: '', plataforma: 'Instagram', formato: 'Reel' });
-                setJoyasSeleccionadas([]);
-                setIsModalOpen(false);
+                cerrarModal();
                 cargarDatos();
             }
         } catch (error) {
-            console.error("Error al registrar video:", error);
+            console.error("Error al registrar/editar video:", error);
         }
     };
 
@@ -122,6 +149,9 @@ const ContentGallery = () => {
             reporteTexto += `📌 [${pub.formato.toUpperCase()}] ${pub.titulo}\n`;
             reporteTexto += `🗓️ Fecha Subida: ${pub.fechaPublicacion || 'N/A'}\n`;
             reporteTexto += `💎 Joya(s): ${joyasTexto}\n`;
+            if (pub.formato.includes('Carrusel') && pub.cantidadFotos) {
+                reporteTexto += `📸 Cantidad de Fotos: ${pub.cantidadFotos}\n`;
+            }
             reporteTexto += `🔴 Estado de Inventario: ${estadoVideo.msg.replace(/[🚨⚠️]/g, '')}\n`;
             reporteTexto += `📈 Rendimiento Actual:\n`;
             reporteTexto += `   - Reproducciones: ${pub.reproducciones || 0}\n`;
@@ -150,7 +180,7 @@ const ContentGallery = () => {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-white text-black font-bold px-4 py-2 rounded hover:bg-zinc-200 transition-colors shadow-lg text-sm tracking-widest">
+                    <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-white text-black font-bold px-4 py-2 rounded hover:bg-zinc-200 transition-colors shadow-lg text-sm tracking-widest">
                         <Plus className="w-4 h-4" /> ANOTAR VIDEO
                     </button>
                     <button onClick={cargarDatos} className="p-2 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 transition-colors" title="Actualizar Datos">
@@ -190,9 +220,14 @@ const ContentGallery = () => {
                                             <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">{pub.formato}</span>
                                             <span className="text-[10px] text-zinc-600">{pub.fechaPublicacion}</span>
                                         </div>
-                                        <button onClick={() => handleEliminarVideo(pub.id)} className="text-zinc-600 hover:text-red-500 transition-colors" title="Borrar Video">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => abrirParaEditar(pub)} className="text-zinc-600 hover:text-white transition-colors" title="Editar Video">
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleEliminarVideo(pub.id)} className="text-zinc-600 hover:text-red-500 transition-colors" title="Borrar Video">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                     <h3 className="font-bold text-sm text-zinc-200 line-clamp-2 leading-tight min-h-[2.5rem]">{pub.titulo}</h3>
                                 </div>
@@ -249,14 +284,16 @@ const ContentGallery = () => {
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                     <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-xl shadow-2xl w-full max-w-2xl">
                         <div className="flex justify-between items-center mb-6 border-b border-zinc-800 pb-4">
-                            <h3 className="text-xl font-light tracking-widest text-zinc-100 uppercase">🎬 Anotar Nuevo Video</h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-zinc-500 hover:text-white">
+                            <h3 className="text-xl font-light tracking-widest text-zinc-100 uppercase">
+                                {editingId ? '✏️ Editar Video' : '🎬 Anotar Nuevo Video'}
+                            </h3>
+                            <button onClick={cerrarModal} className="text-zinc-500 hover:text-white">
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            <div className="flex flex-col md:col-span-1">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div className="flex flex-col md:col-span-2">
                                 <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Título del Video</label>
                                 <input type="text" placeholder="Ej: Gancho Cadena Cartier" value={nuevoVideo.titulo} onChange={(e) => setNuevoVideo({...nuevoVideo, titulo: e.target.value})} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400" />
                             </div>
@@ -271,7 +308,7 @@ const ContentGallery = () => {
                                 />
                             </div>
 
-                            <div className="flex flex-col">
+                            <div className="flex flex-col md:col-span-1">
                                 <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Plataforma</label>
                                 <select value={nuevoVideo.plataforma} onChange={(e) => setNuevoVideo({...nuevoVideo, plataforma: e.target.value, formato: e.target.value === 'Instagram' ? 'Reel' : 'Video'})} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 text-sm focus:outline-none focus:border-zinc-400">
                                     <option value="Instagram">Instagram</option>
@@ -279,16 +316,33 @@ const ContentGallery = () => {
                                 </select>
                             </div>
 
-                            <div className="flex flex-col">
+                            <div className="flex flex-col md:col-span-2">
                                 <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Formato</label>
                                 <select value={nuevoVideo.formato} onChange={(e) => setNuevoVideo({...nuevoVideo, formato: e.target.value})} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 text-sm focus:outline-none focus:border-zinc-400">
                                     {nuevoVideo.plataforma === 'Instagram' ? (
-                                        <><option value="Reel">Reel</option><option value="Carrusel">Carrusel</option><option value="Historia">Historia</option></>
+                                        <>
+                                            <option value="Reel">Reel</option>
+                                            <option value="Carrusel">Carrusel</option>
+                                            <option value="Historia">Historia</option>
+                                            <option value="Reel + Historia">Reel + Historia</option>
+                                            <option value="Carrusel + Historia">Carrusel + Historia</option>
+                                        </>
                                     ) : (
-                                        <><option value="Video">Video</option><option value="Carrusel">Carrusel</option></>
+                                        <>
+                                            <option value="Video">Video</option>
+                                            <option value="Carrusel">Carrusel</option>
+                                        </>
                                     )}
                                 </select>
                             </div>
+
+                            {/* Mostrar input de Cantidad de fotos solo si es Carrusel */}
+                            {nuevoVideo.formato.includes('Carrusel') && (
+                                <div className="flex flex-col md:col-span-2">
+                                    <label className="text-[10px] text-green-400 uppercase tracking-wider mb-1 pl-1 font-bold">Cantidad de Fotos</label>
+                                    <input type="number" placeholder="Ej: 4" value={nuevoVideo.cantidadFotos} onChange={(e) => setNuevoVideo({...nuevoVideo, cantidadFotos: e.target.value})} className="p-2.5 bg-zinc-900/50 border border-green-800/50 rounded text-green-400 text-sm focus:outline-none focus:border-green-500 placeholder:text-zinc-600" />
+                                </div>
+                            )}
                         </div>
 
                         <div className="bg-zinc-900/30 p-4 rounded-lg border border-zinc-800 mb-6">
@@ -309,7 +363,7 @@ const ContentGallery = () => {
                         </div>
 
                         <button onClick={handleRegistrarVideo} className="w-full bg-white text-black hover:bg-zinc-200 font-bold tracking-widest py-3 rounded transition-colors shadow-lg text-sm">
-                            🚀 GUARDAR VIDEO
+                            🚀 {editingId ? 'GUARDAR CAMBIOS' : 'GUARDAR VIDEO'}
                         </button>
                     </div>
                 </div>
