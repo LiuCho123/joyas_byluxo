@@ -6,6 +6,7 @@ import com.liucho.backend.Service.PublicacionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -21,7 +22,25 @@ public class PublicacionController {
 
     @GetMapping
     public List<Publicacion> obtenerTodas(){
-        return publicacionRepository.findAll();
+        List<Publicacion> todas = publicacionRepository.findAll();
+        LocalDate hace5Dias = LocalDate.now().minusDays(5);
+        boolean huboBorrados = false;
+
+        for (Publicacion pub : todas) {
+            // Borra SOLAMENTE si el formato es exactamente "Historia" y ya pasaron 5 días
+            if ("Historia".equalsIgnoreCase(pub.getFormato()) &&
+                    pub.getFechaPublicacion() != null &&
+                    pub.getFechaPublicacion().isBefore(hace5Dias)) {
+
+                publicacionRepository.delete(pub);
+                huboBorrados = true;
+            }
+        }
+
+        if (huboBorrados) {
+            return publicacionRepository.findAll();
+        }
+        return todas;
     }
 
     @PostMapping
