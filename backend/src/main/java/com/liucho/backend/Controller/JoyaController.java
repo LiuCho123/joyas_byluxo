@@ -50,7 +50,7 @@ public class JoyaController {
 
     @GetMapping("/exportar/excel")
     public ResponseEntity<InputStreamResource> exportarExcel() throws IOException {
-        ByteArrayInputStream in = excelExportService.exportarJoyas();
+        ByteArrayInputStream in = excelExportService.exportarExcelCompleto();
 
         HttpHeaders headers = new HttpHeaders();
         headers.add("Content-Disposition", "attachment; filename=Joyas_ByLuxo.xlsx");
