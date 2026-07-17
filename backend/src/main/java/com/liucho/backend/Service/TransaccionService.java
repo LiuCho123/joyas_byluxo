@@ -22,12 +22,12 @@ public class TransaccionService {
 
     @Transactional
     public Transaccion registrarVenta(Transaccion venta){
-        int totalIngreso = 0;
+        int sumaPreciosOriginales = 0;
 
         if (venta.getItems() != null && !venta.getItems().isEmpty()) {
-            for (ItemVenta item :  venta.getItems()) {
+            for (ItemVenta item : venta.getItems()) {
                 Joya joyaReal = joyaRepository.findById(item.getJoya().getId())
-                        .orElseThrow(() -> new RuntimeException("Joya no encontrado"));
+                        .orElseThrow(() -> new RuntimeException("Joya no encontrada"));
 
                 if (joyaReal.getStock() < item.getCantidad()){
                     throw new RuntimeException("Stock insuficiente para: " + joyaReal.getNombre());
@@ -39,22 +39,34 @@ public class TransaccionService {
                 item.setSubtotal(joyaReal.getPrecio() * item.getCantidad());
                 item.setTransaccion(venta);
 
-                totalIngreso += item.getSubtotal();
+                sumaPreciosOriginales += item.getSubtotal();
             }
         }
 
-        venta.setFecha(LocalDate.now());
+        // Respetamos la fecha manual del frontend. Si viene vacía, usa la de hoy.
+        if (venta.getFecha() == null) {
+            venta.setFecha(LocalDate.now());
+        }
+
+        // Flexibilidad de precio: Si el frontend manda un monto, lo respeta (descuento).
+        // Si manda 0, cobra la suma original de las joyas.
+        int ingresoFinal = (venta.getEntra() > 0) ? venta.getEntra() : sumaPreciosOriginales;
+
         venta.setTipo("Ingreso");
         venta.setCategoria("Venta de Joya");
-        venta.setEntra(totalIngreso);
+        venta.setEntra(ingresoFinal);
         venta.setSale(0);
 
-        venta.setComision((int) (totalIngreso * 0.10));
+        // La comisión del 10% se calcula sobre el ingreso final cobrado
+        venta.setComision((int) (ingresoFinal * 0.10));
+
         return transaccionRepository.save(venta);
     }
 
     public Transaccion registrarMovimientoSimple(Transaccion movimiento){
-        movimiento.setFecha(LocalDate.now());
+        if (movimiento.getFecha() == null) {
+            movimiento.setFecha(LocalDate.now());
+        }
         movimiento.setComision(0);
         return transaccionRepository.save(movimiento);
     }

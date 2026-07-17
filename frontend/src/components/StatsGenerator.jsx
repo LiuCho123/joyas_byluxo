@@ -37,7 +37,7 @@ const StatsGenerator = () => {
 
     const cargarDatos = async () => {
         try {
-            const resPubs = await fetch('https://joyas-byluxo.onrender.com/api/publicaciones');
+            const resPubs = await fetch('https://joyas-byluxo1.onrender.com/api/publicaciones');
             if (resPubs.ok) setPublicaciones(await resPubs.json());
         } catch (error) {
             console.error("Error cargando datos:", error);
@@ -88,7 +88,7 @@ const StatsGenerator = () => {
         };
 
         try {
-            await fetch(`https://joyas-byluxo.onrender.com/api/publicaciones/${publicacionSeleccionada}/metricas`, {
+            await fetch(`https://joyas-byluxo1.onrender.com/api/publicaciones/${publicacionSeleccionada}/metricas`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(metricasBD)

@@ -33,7 +33,7 @@ const InventoryPanel = () => {
     const cargarInventario = async () => {
         try {
             // Usa tu URL de Vercel/Render si estás en prod, o localhost si estás probando localmente
-            const response = await fetch('https://joyas-byluxo.onrender.com/api/joyas');
+            const response = await fetch('https://joyas-byluxo1.onrender.com/api/joyas');
             if (response.ok) {
                 const data = await response.json();
                 setInventory(data);
@@ -59,7 +59,7 @@ const InventoryPanel = () => {
     const handleGuardar = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('https://joyas-byluxo.onrender.com/api/joyas', {
+            const response = await fetch('https://joyas-byluxo1.onrender.com/api/joyas', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -84,7 +84,7 @@ const InventoryPanel = () => {
     const handleEliminar = async (id) => {
         if (window.confirm("¿Estás seguro de eliminar esta joya de forma permanente? Esta acción no se puede deshacer.")) {
             try {
-                const response = await fetch(`https://joyas-byluxo.onrender.com/api/joyas/${id}`, {
+                const response = await fetch(`https://joyas-byluxo1.onrender.com/api/joyas/${id}`, {
                     method: 'DELETE'
                 });
                 if (response.ok) {
@@ -99,7 +99,7 @@ const InventoryPanel = () => {
     // EL BOTÓN MÁGICO DE DESCARGA
     const descargarExcel = async () => {
         try {
-            const res = await fetch('https://joyas-byluxo.onrender.com/api/joyas/exportar/excel');
+            const res = await fetch('https://joyas-byluxo1.onrender.com/api/joyas/exportar/excel');
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);

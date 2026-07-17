@@ -32,4 +32,10 @@ public class TransaccionController {
             return transaccionService.registrarMovimientoSimple(transaccion);
         }
     }
+
+    // NUEVO: Método para eliminar la transacción
+    @DeleteMapping("/{id}")
+    public void eliminarTransaccion(@PathVariable Long id){
+        transaccionRepository.deleteById(id);
+    }
 }

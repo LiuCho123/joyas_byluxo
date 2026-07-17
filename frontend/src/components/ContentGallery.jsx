@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, MessageCircle, Heart, Bookmark, Share2, Play, Plus, X, Camera, Video } from 'lucide-react';
+import { RefreshCw, MessageCircle, Heart, Bookmark, Share2, Play, Plus, X, Camera, Video, Trash2 } from 'lucide-react';
 import logoByLuxo from '../assets/logo.jpeg';
 
 const ContentGallery = () => {
@@ -8,9 +8,9 @@ const ContentGallery = () => {
     const [activePlatform, setActivePlatform] = useState('Instagram');
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Estados para el Modal de Anotar Video
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [nuevoVideo, setNuevoVideo] = useState({ titulo: '', plataforma: 'Instagram', formato: 'Reel' });
+    const hoy = new Date().toISOString().split('T')[0];
+    const [nuevoVideo, setNuevoVideo] = useState({ titulo: '', plataforma: 'Instagram', formato: 'Reel', fechaPublicacion: hoy });
     const [joyasSeleccionadas, setJoyasSeleccionadas] = useState([]);
 
     useEffect(() => {
@@ -20,8 +20,8 @@ const ContentGallery = () => {
     const cargarDatos = async () => {
         try {
             const [resPubs, resJoyas] = await Promise.all([
-                fetch('https://joyas-byluxo.onrender.com/api/publicaciones'),
-                fetch('https://joyas-byluxo.onrender.com/api/joyas')
+                fetch('https://joyas-byluxo1.onrender.com/api/publicaciones'),
+                fetch('https://joyas-byluxo1.onrender.com/api/joyas')
             ]);
 
             if (resPubs.ok && resJoyas.ok) {
@@ -35,7 +35,24 @@ const ContentGallery = () => {
         }
     };
 
-    // --- Lógica: Registrar Nuevo Video ---
+    // --- LÓGICA ELIMINAR VIDEO ---
+    const handleEliminarVideo = async (id) => {
+        if (!window.confirm("¿Seguro que deseas eliminar este video del registro?")) return;
+
+        try {
+            const res = await fetch(`https://joyas-byluxo1.onrender.com/api/publicaciones/${id}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                cargarDatos();
+            } else {
+                alert("Error al eliminar el video. Revisa el servidor.");
+            }
+        } catch (error) {
+            console.error("Error al eliminar:", error);
+        }
+    };
+
     const toggleJoyaSeleccionada = (id) => {
         setJoyasSeleccionadas(prev =>
             prev.includes(id) ? prev.filter(j => j !== id) : [...prev, id]
@@ -53,7 +70,7 @@ const ContentGallery = () => {
         };
 
         try {
-            const response = await fetch('https://joyas-byluxo.onrender.com/api/publicaciones', {
+            const response = await fetch('https://joyas-byluxo1.onrender.com/api/publicaciones', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -70,12 +87,10 @@ const ContentGallery = () => {
         }
     };
 
-    // --- Lógica Maestra de Stock y Alertas ---
     const getEstadoVideo = (pubJoyas) => {
         if (!pubJoyas || pubJoyas.length === 0) {
             return { msg: "VLOG / GENERAL", color: "text-green-400 bg-green-400/10 border-green-500/30" };
         }
-
         let joyasVendidas = 0;
         pubJoyas.forEach(pj => {
             const joyaEnBD = inventario.find(j => j.id === pj.id);
@@ -91,7 +106,6 @@ const ContentGallery = () => {
         }
     };
 
-    // --- Generador de Reporte para el Estratega ---
     const generarReporteEstratega = () => {
         setIsGenerating(true);
         const pubsPlataforma = publicaciones.filter(p => p.plataforma === activePlatform);
@@ -127,8 +141,6 @@ const ContentGallery = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-6 bg-zinc-950 text-gray-200 rounded-xl shadow-2xl border border-zinc-800 font-sans mt-6">
-
-            {/* Cabecera */}
             <div className="flex justify-between items-center mb-6 pb-6 border-b border-zinc-800">
                 <div className="flex items-center gap-4">
                     <img src={logoByLuxo} alt="Joyas" className="w-16 h-16 rounded-full border border-zinc-700 shadow-md" />
@@ -138,49 +150,29 @@ const ContentGallery = () => {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="flex items-center gap-2 bg-white text-black font-bold px-4 py-2 rounded hover:bg-zinc-200 transition-colors shadow-lg text-sm tracking-widest"
-                    >
+                    <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-white text-black font-bold px-4 py-2 rounded hover:bg-zinc-200 transition-colors shadow-lg text-sm tracking-widest">
                         <Plus className="w-4 h-4" /> ANOTAR VIDEO
                     </button>
-                    <button
-                        onClick={cargarDatos}
-                        className="p-2 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 transition-colors"
-                        title="Actualizar Datos"
-                    >
+                    <button onClick={cargarDatos} className="p-2 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 transition-colors" title="Actualizar Datos">
                         <RefreshCw className="w-5 h-5 text-zinc-400" />
                     </button>
                 </div>
             </div>
 
-            {/* Pestañas de Plataforma y Botón de Reporte */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => setActivePlatform('Instagram')}
-                        className={`px-8 py-3 font-bold tracking-widest rounded-lg flex items-center gap-2 transition-all ${activePlatform === 'Instagram' ? 'bg-gradient-to-tr from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-900/20' : 'bg-zinc-900 text-zinc-500 border border-zinc-800 hover:text-white'}`}
-                    >
+                    <button onClick={() => setActivePlatform('Instagram')} className={`px-8 py-3 font-bold tracking-widest rounded-lg flex items-center gap-2 transition-all ${activePlatform === 'Instagram' ? 'bg-gradient-to-tr from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-900/20' : 'bg-zinc-900 text-zinc-500 border border-zinc-800 hover:text-white'}`}>
                         <Camera className="w-5 h-5" /> INSTAGRAM
                     </button>
-                    <button
-                        onClick={() => setActivePlatform('TikTok')}
-                        className={`px-8 py-3 font-bold tracking-widest rounded-lg flex items-center gap-2 transition-all ${activePlatform === 'TikTok' ? 'bg-black text-white border border-zinc-700 shadow-lg shadow-zinc-800/50' : 'bg-zinc-900 text-zinc-500 border border-zinc-800 hover:text-white'}`}
-                    >
+                    <button onClick={() => setActivePlatform('TikTok')} className={`px-8 py-3 font-bold tracking-widest rounded-lg flex items-center gap-2 transition-all ${activePlatform === 'TikTok' ? 'bg-black text-white border border-zinc-700 shadow-lg shadow-zinc-800/50' : 'bg-zinc-900 text-zinc-500 border border-zinc-800 hover:text-white'}`}>
                         <Video className="w-5 h-5" /> TIKTOK
                     </button>
                 </div>
-
-                <button
-                    onClick={generarReporteEstratega}
-                    disabled={isGenerating}
-                    className="w-full md:w-auto bg-zinc-800 text-zinc-300 font-bold px-6 py-3 rounded hover:bg-zinc-700 hover:text-white border border-zinc-700 transition-colors shadow-lg text-xs"
-                >
+                <button onClick={generarReporteEstratega} disabled={isGenerating} className="w-full md:w-auto bg-zinc-800 text-zinc-300 font-bold px-6 py-3 rounded hover:bg-zinc-700 hover:text-white border border-zinc-700 transition-colors shadow-lg text-xs">
                     {isGenerating ? 'Generando...' : `📋 COPIAR REPORTE ${activePlatform.toUpperCase()}`}
                 </button>
             </div>
 
-            {/* Grid del "Feed" */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {pubsVisualizar.length === 0 ? (
                     <div className="col-span-full p-10 text-center text-zinc-500 border border-zinc-800 border-dashed rounded-xl">
@@ -194,8 +186,13 @@ const ContentGallery = () => {
 
                                 <div className="p-4 border-b border-zinc-800 bg-black/40">
                                     <div className="flex justify-between items-start mb-2">
-                                        <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">{pub.formato}</span>
-                                        <span className="text-[10px] text-zinc-600">{pub.fechaPublicacion}</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">{pub.formato}</span>
+                                            <span className="text-[10px] text-zinc-600">{pub.fechaPublicacion}</span>
+                                        </div>
+                                        <button onClick={() => handleEliminarVideo(pub.id)} className="text-zinc-600 hover:text-red-500 transition-colors" title="Borrar Video">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
                                     <h3 className="font-bold text-sm text-zinc-200 line-clamp-2 leading-tight min-h-[2.5rem]">{pub.titulo}</h3>
                                 </div>
@@ -248,7 +245,6 @@ const ContentGallery = () => {
                 )}
             </div>
 
-            {/* MODAL: REGISTRAR NUEVO VIDEO */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                     <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-xl shadow-2xl w-full max-w-2xl">
@@ -263,6 +259,16 @@ const ContentGallery = () => {
                             <div className="flex flex-col md:col-span-1">
                                 <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Título del Video</label>
                                 <input type="text" placeholder="Ej: Gancho Cadena Cartier" value={nuevoVideo.titulo} onChange={(e) => setNuevoVideo({...nuevoVideo, titulo: e.target.value})} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400" />
+                            </div>
+
+                            <div className="flex flex-col md:col-span-1">
+                                <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Fecha de Subida</label>
+                                <input
+                                    type="date"
+                                    value={nuevoVideo.fechaPublicacion}
+                                    onChange={(e) => setNuevoVideo({...nuevoVideo, fechaPublicacion: e.target.value})}
+                                    className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400 [color-scheme:dark]"
+                                />
                             </div>
 
                             <div className="flex flex-col">
