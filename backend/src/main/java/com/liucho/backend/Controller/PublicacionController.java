@@ -1,6 +1,9 @@
 package com.liucho.backend.Controller;
 
+import com.liucho.backend.Model.Joya;
 import com.liucho.backend.Model.Publicacion;
+import com.liucho.backend.Model.PublicacionJoya;
+import com.liucho.backend.Repository.JoyaRepository;
 import com.liucho.backend.Repository.PublicacionRepository;
 import com.liucho.backend.Service.PublicacionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +21,9 @@ public class PublicacionController {
     private PublicacionRepository publicacionRepository;
 
     @Autowired
+    private JoyaRepository joyaRepository;
+
+    @Autowired
     private PublicacionService publicacionService;
 
     @GetMapping
@@ -26,8 +32,8 @@ public class PublicacionController {
         LocalDate hace5Dias = LocalDate.now().minusDays(5);
         boolean huboBorrados = false;
 
+        // Limpieza automática de Historias
         for (Publicacion pub : todas) {
-            // Borra SOLAMENTE si el formato es exactamente "Historia" y ya pasaron 5 días
             if ("Historia".equalsIgnoreCase(pub.getFormato()) &&
                     pub.getFechaPublicacion() != null &&
                     pub.getFechaPublicacion().isBefore(hace5Dias)) {
@@ -36,10 +42,7 @@ public class PublicacionController {
                 huboBorrados = true;
             }
         }
-
-        if (huboBorrados) {
-            return publicacionRepository.findAll();
-        }
+        if (huboBorrados) return publicacionRepository.findAll();
         return todas;
     }
 
@@ -55,11 +58,22 @@ public class PublicacionController {
             pub.setPlataforma(datosActualizados.getPlataforma());
             pub.setFormato(datosActualizados.getFormato());
             pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
-
             pub.setCantidadFotos(datosActualizados.getCantidadFotos());
 
-            pub.setJoyas(datosActualizados.getJoyas());
-
+            // Actualizar joyas y re-congelar stock
+            if(datosActualizados.getJoyas() != null) {
+                pub.getRelaciones().clear();
+                for(Joya joyaRef : datosActualizados.getJoyas()) {
+                    Joya joyaReal = joyaRepository.findById(joyaRef.getId()).orElse(null);
+                    if(joyaReal != null) {
+                        PublicacionJoya relacion = new PublicacionJoya();
+                        relacion.setPublicacion(pub);
+                        relacion.setJoya(joyaReal);
+                        relacion.setStockAlSubir(joyaReal.getStock());
+                        pub.getRelaciones().add(relacion);
+                    }
+                }
+            }
             return publicacionRepository.save(pub);
         }).orElseThrow(() -> new RuntimeException("Publicación no encontrada"));
     }

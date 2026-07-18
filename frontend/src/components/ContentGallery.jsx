@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, MessageCircle, Heart, Bookmark, Share2, Play, Plus, X, Camera, Video, Trash2, Pencil } from 'lucide-react';
+import { RefreshCw, MessageCircle, Heart, Bookmark, Share2, Play, Plus, X, Camera, Video, Trash2, Pencil, PackageSearch, Zap } from 'lucide-react';
 import logoByLuxo from '../assets/logo.jpeg';
 
 const ContentGallery = () => {
@@ -12,13 +12,7 @@ const ContentGallery = () => {
     const [editingId, setEditingId] = useState(null);
 
     const hoy = new Date().toISOString().split('T')[0];
-    const [nuevoVideo, setNuevoVideo] = useState({
-        titulo: '',
-        plataforma: 'Instagram',
-        formato: 'Reel',
-        fechaPublicacion: hoy,
-        cantidadFotos: ''
-    });
+    const [nuevoVideo, setNuevoVideo] = useState({ titulo: '', plataforma: 'Instagram', formato: 'Reel', fechaPublicacion: hoy, cantidadFotos: '' });
     const [joyasSeleccionadas, setJoyasSeleccionadas] = useState([]);
 
     useEffect(() => {
@@ -63,7 +57,7 @@ const ContentGallery = () => {
             fechaPublicacion: pub.fechaPublicacion || hoy,
             cantidadFotos: pub.cantidadFotos || ''
         });
-        setJoyasSeleccionadas(pub.joyas ? pub.joyas.map(j => j.id) : []);
+        setJoyasSeleccionadas(pub.relaciones ? pub.relaciones.map(r => r.joya.id) : []);
         setIsModalOpen(true);
     };
 
@@ -114,23 +108,35 @@ const ContentGallery = () => {
         }
     };
 
-    const getEstadoVideo = (pubJoyas) => {
-        if (!pubJoyas || pubJoyas.length === 0) {
+    const getEstadoVideo = (pubJoyasRelacion) => {
+        if (!pubJoyasRelacion || pubJoyasRelacion.length === 0) {
             return { msg: "VLOG / GENERAL", color: "text-green-400 bg-green-400/10 border-green-500/30" };
         }
-        let joyasVendidas = 0;
-        pubJoyas.forEach(pj => {
-            const joyaEnBD = inventario.find(j => j.id === pj.id);
-            if (joyaEnBD && joyaEnBD.stock === 0) joyasVendidas++;
+
+        let totalJoyasVideo = pubJoyasRelacion.length;
+        let joyasAgotadas = 0;
+        let joyasDescuadradas = 0;
+
+        pubJoyasRelacion.forEach(pjRel => {
+            const stockCongelado = pjRel.stockAlSubir;
+            const joyaActual = inventario.find(j => j.id === pjRel.joya.id);
+
+            if (joyaActual) {
+                if (joyaActual.stock === 0) {
+                    joyasAgotadas++;
+                } else if (joyaActual.stock !== stockCongelado) {
+                    joyasDescuadradas++;
+                }
+            }
         });
 
-        if (joyasVendidas === pubJoyas.length) {
+        if (joyasAgotadas === totalJoyasVideo) {
             return { msg: "🚨 BORRAR: Joya(s) Agotada(s)", color: "text-red-400 bg-red-400/10 border-red-500/30 font-bold" };
-        } else if (joyasVendidas > 0) {
-            return { msg: "⚠️ ATENCIÓN: Joya parcial agotada", color: "text-yellow-400 bg-yellow-400/10 border-yellow-500/30" };
-        } else {
-            return { msg: "ACTIVO", color: "text-zinc-400 bg-zinc-800 border-zinc-700" };
         }
+        if (joyasDescuadradas > 0 || (joyasAgotadas > 0 && joyasAgotadas < totalJoyasVideo)) {
+            return { msg: "⚠️ ACTIVO - Falta Actualizar Lote", color: "text-yellow-400 bg-yellow-400/10 border-yellow-500/30 font-bold" };
+        }
+        return { msg: "✅ ACTIVO - Stock Blindado", color: "text-green-400 bg-green-400/10 border-green-500/30" };
     };
 
     const generarReporteEstratega = () => {
@@ -141,9 +147,9 @@ const ContentGallery = () => {
         reporteTexto += `(Generado para análisis comparativo de retención y limpieza del feed)\n\n`;
 
         pubsPlataforma.forEach(pub => {
-            const estadoVideo = getEstadoVideo(pub.joyas);
-            let joyasTexto = pub.joyas && pub.joyas.length > 0
-                ? pub.joyas.map(j => j.nombre).join(" + ")
+            const estadoVideo = getEstadoVideo(pub.relaciones);
+            let joyasTexto = pub.relaciones && pub.relaciones.length > 0
+                ? pub.relaciones.map(rel => rel.joya.nombre).join(" + ")
                 : "Contenido General (Vlog)";
 
             reporteTexto += `📌 [${pub.formato.toUpperCase()}] ${pub.titulo}\n`;
@@ -152,7 +158,7 @@ const ContentGallery = () => {
             if (pub.formato.includes('Carrusel') && pub.cantidadFotos) {
                 reporteTexto += `📸 Cantidad de Fotos: ${pub.cantidadFotos}\n`;
             }
-            reporteTexto += `🔴 Estado de Inventario: ${estadoVideo.msg.replace(/[🚨⚠️]/g, '')}\n`;
+            reporteTexto += `🔴 Estado de Inventario: ${estadoVideo.msg.replace(/[🚨⚠️✅]/g, '')}\n`;
             reporteTexto += `📈 Rendimiento Actual:\n`;
             reporteTexto += `   - Reproducciones: ${pub.reproducciones || 0}\n`;
             reporteTexto += `   - Likes: ${pub.likes || 0} | Comentarios: ${pub.comentarios || 0}\n`;
@@ -176,7 +182,7 @@ const ContentGallery = () => {
                     <img src={logoByLuxo} alt="Joyas" className="w-16 h-16 rounded-full border border-zinc-700 shadow-md" />
                     <div>
                         <h2 className="text-2xl font-light tracking-widest text-zinc-100 uppercase">Vitrina de Contenidos</h2>
-                        <p className="text-sm text-zinc-500">Auditoría Visual y Limpieza de Feed</p>
+                        <p className="text-sm text-zinc-500">Auditoría Visual y Control Operativo</p>
                     </div>
                 </div>
                 <div className="flex gap-3">
@@ -210,7 +216,7 @@ const ContentGallery = () => {
                     </div>
                 ) : (
                     pubsVisualizar.map((pub) => {
-                        const estado = getEstadoVideo(pub.joyas);
+                        const estado = getEstadoVideo(pub.relaciones);
                         return (
                             <div key={pub.id} className={`bg-zinc-900 border rounded-xl overflow-hidden flex flex-col transition-all hover:border-zinc-500 ${estado.msg.includes('BORRAR') ? 'border-red-900/50 shadow-lg shadow-red-900/10' : 'border-zinc-800'}`}>
 
@@ -232,20 +238,36 @@ const ContentGallery = () => {
                                     <h3 className="font-bold text-sm text-zinc-200 line-clamp-2 leading-tight min-h-[2.5rem]">{pub.titulo}</h3>
                                 </div>
 
-                                <div className="p-4 flex-1">
+                                <div className="p-4 flex-1 flex flex-col justify-between">
                                     <div className={`text-[10px] px-2 py-1.5 rounded text-center mb-4 uppercase tracking-widest ${estado.color}`}>
                                         {estado.msg}
                                     </div>
 
-                                    <div className="space-y-2">
-                                        {(!pub.joyas || pub.joyas.length === 0) ? (
-                                            <p className="text-xs text-zinc-500 italic text-center">Video general. No expone joyas del inventario.</p>
+                                    <div className="space-y-1.5">
+                                        {(!pub.relaciones || pub.relaciones.length === 0) ? (
+                                            <p className="text-xs text-zinc-500 italic text-center">Video general. No expone joyas.</p>
                                         ) : (
-                                            pub.joyas.map(j => (
-                                                <div key={j.id} className="text-xs text-zinc-400 bg-zinc-950 p-2 rounded border border-zinc-800 flex items-center justify-between">
-                                                    <span className="truncate pr-2">{j.nombre}</span>
-                                                </div>
-                                            ))
+                                            pub.relaciones.map(rel => {
+                                                const joyaEnInventario = inventario.find(j => j.id === rel.joya.id);
+                                                const stockActualVal = joyaEnInventario ? joyaEnInventario.stock : 0;
+                                                const descuadrado = rel.stockAlSubir !== stockActualVal;
+
+                                                return (
+                                                    <div key={rel.id} className={`text-xs p-2 rounded border flex flex-col gap-1 ${descuadrado ? 'bg-yellow-950/20 border-yellow-700/50 text-yellow-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
+                                                        <span className="truncate font-bold text-zinc-200">{rel.joya.nombre}</span>
+                                                        <div className="flex justify-between items-center text-[10px]">
+                                                            <div className="flex items-center gap-1.5" title="Stock que había al grabar el video">
+                                                                <Zap className="w-3 h-3 text-zinc-500" />
+                                                                <span>G: {rel.stockAlSubir}u</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5" title="Stock actual en bodega">
+                                                                <PackageSearch className={`w-3.5 h-3.5 ${descuadrado ? 'text-yellow-400' : 'text-zinc-500'}`} />
+                                                                <span className={descuadrado ? 'font-bold' : ''}>A: {stockActualVal}u</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
                                         )}
                                     </div>
                                 </div>
@@ -336,7 +358,6 @@ const ContentGallery = () => {
                                 </select>
                             </div>
 
-                            {/* Mostrar input de Cantidad de fotos solo si es Carrusel */}
                             {nuevoVideo.formato.includes('Carrusel') && (
                                 <div className="flex flex-col md:col-span-2">
                                     <label className="text-[10px] text-green-400 uppercase tracking-wider mb-1 pl-1 font-bold">Cantidad de Fotos</label>

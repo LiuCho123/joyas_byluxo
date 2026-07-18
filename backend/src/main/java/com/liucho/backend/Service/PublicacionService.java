@@ -3,7 +3,9 @@ package com.liucho.backend.Service;
 import com.liucho.backend.Model.EstadoRedes;
 import com.liucho.backend.Model.Joya;
 import com.liucho.backend.Model.Publicacion;
+import com.liucho.backend.Model.PublicacionJoya;
 import com.liucho.backend.Repository.JoyaRepository;
+import com.liucho.backend.Repository.PublicacionJoyaRepository;
 import com.liucho.backend.Repository.PublicacionRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,16 +22,23 @@ public class PublicacionService {
     @Autowired
     private JoyaRepository joyaRepository;
 
+    @Autowired
+    private PublicacionJoyaRepository publicacionJoyaRepository;
+
     @Transactional
     public Publicacion registrarPublicacion(Publicacion publicacion) {
         publicacion.setFechaPublicacion(LocalDate.now());
         publicacion.setEstado("Activo");
+
+        // 1. Guardamos la publicación base
+        Publicacion nuevaPub = publicacionRepository.save(publicacion);
 
         if (publicacion.getJoyas() != null && !publicacion.getJoyas().isEmpty()){
             for (Joya joyaRef : publicacion.getJoyas()) {
                 Joya joyaReal = joyaRepository.findById(joyaRef.getId())
                         .orElseThrow(() -> new RuntimeException("Joya no encontrada"));
 
+                // 2. ACTUALIZAMOS EL ESTADO DE REDES
                 EstadoRedes redes = joyaReal.getEstadoRedes();
                 String fechaHoy = LocalDate.now().toString();
 
@@ -43,9 +52,17 @@ public class PublicacionService {
                     redes.setTkFormato(publicacion.getFormato());
                 }
                 joyaRepository.save(joyaReal);
+
+                // 3. CONGELAMOS EL STOCK EN LA TABLA INTERMEDIA
+                PublicacionJoya relacion = new PublicacionJoya();
+                relacion.setPublicacion(nuevaPub);
+                relacion.setJoya(joyaReal);
+                relacion.setStockAlSubir(joyaReal.getStock());
+
+                publicacionJoyaRepository.save(relacion);
             }
         }
-        return publicacionRepository.save(publicacion);
+        return nuevaPub;
     }
 
     @Transactional
