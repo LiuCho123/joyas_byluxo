@@ -1,5 +1,6 @@
 package com.liucho.backend.Controller;
 
+import com.liucho.backend.Model.EstadoRedes;
 import com.liucho.backend.Model.Joya;
 import com.liucho.backend.Model.Publicacion;
 import com.liucho.backend.Model.PublicacionJoya;
@@ -60,12 +61,39 @@ public class PublicacionController {
             pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
             pub.setCantidadFotos(datosActualizados.getCantidadFotos());
 
-            // Actualizar joyas y re-congelar stock
+            // Actualizar joyas, re-congelar stock y ACTUALIZAR ESTADO DE REDES
             if(datosActualizados.getJoyas() != null) {
                 pub.getRelaciones().clear();
                 for(Joya joyaRef : datosActualizados.getJoyas()) {
                     Joya joyaReal = joyaRepository.findById(joyaRef.getId()).orElse(null);
                     if(joyaReal != null) {
+                        // 1. Actualizar Estados de Redes
+                        EstadoRedes redes = joyaReal.getEstadoRedes();
+                        String fechaHoy = LocalDate.now().toString();
+                        String plat = pub.getPlataforma();
+                        String form = pub.getFormato();
+
+                        if ("Instagram".equalsIgnoreCase(plat)){
+                            redes.setIgEstado("Activo");
+                            redes.setIgUltimaFecha(fechaHoy);
+                            redes.setIgFormato(form);
+                        } else if ("TikTok".equalsIgnoreCase(plat)){
+                            redes.setTkEstado("Activo");
+                            redes.setTkUltimaFecha(fechaHoy);
+                            redes.setTkFormato(form);
+                        } else if ("Marketplace".equalsIgnoreCase(plat)){
+                            redes.setMkpEstado("Activo");
+                            redes.setMkpUltimaFecha(fechaHoy);
+                        } else if ("WhatsApp".equalsIgnoreCase(plat)){
+                            if ("Catálogo".equalsIgnoreCase(form)) {
+                                redes.setWspCatalogo("Activo");
+                            } else if ("Estado".equalsIgnoreCase(form)) {
+                                redes.setWspUltimaFecha(fechaHoy);
+                            }
+                        }
+                        joyaRepository.save(joyaReal);
+
+                        // 2. Congelar Stock
                         PublicacionJoya relacion = new PublicacionJoya();
                         relacion.setPublicacion(pub);
                         relacion.setJoya(joyaReal);
