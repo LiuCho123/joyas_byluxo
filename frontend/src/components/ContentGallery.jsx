@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, MessageCircle, Heart, Bookmark, Share2, Play, Plus, X, Camera, Video, Trash2, Pencil, PackageSearch, Zap } from 'lucide-react';
+import { RefreshCw, MessageCircle, Heart, Bookmark, Share2, Play, Plus, X, Camera, Video, Trash2, Pencil, PackageSearch, Zap, Search } from 'lucide-react';
 import logoByLuxo from '../assets/logo.jpeg';
 
 const ContentGallery = () => {
@@ -7,9 +7,13 @@ const ContentGallery = () => {
     const [inventario, setInventario] = useState([]);
     const [activePlatform, setActivePlatform] = useState('Instagram');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [searchTermGallery, setSearchTermGallery] = useState('');
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
+
+    const [modalFiltroCategoria, setModalFiltroCategoria] = useState('');
+    const [modalOcultarAgotados, setModalOcultarAgotados] = useState(true);
 
     const hoy = new Date().toISOString().split('T')[0];
     const [nuevoVideo, setNuevoVideo] = useState({ titulo: '', plataforma: 'Instagram', formato: 'Reel', fechaPublicacion: hoy, cantidadFotos: '' });
@@ -28,7 +32,7 @@ const ContentGallery = () => {
 
             if (resPubs.ok && resJoyas.ok) {
                 const pubsData = await resPubs.json();
-                pubsData.sort((a, b) => new Date(a.fechaPublicacion) - new Date(b.fechaPublicacion));
+                pubsData.sort((a, b) => new Date(b.fechaPublicacion) - new Date(a.fechaPublicacion));
                 setPublicaciones(pubsData);
                 setInventario(await resJoyas.json());
             }
@@ -48,6 +52,20 @@ const ContentGallery = () => {
         }
     };
 
+    // --- ABRIR PARA CREAR CON PLATAFORMA POR DEFECTO ---
+    const abrirParaCrear = () => {
+        setEditingId(null);
+        setNuevoVideo({
+            titulo: '',
+            plataforma: activePlatform,
+            formato: activePlatform === 'Instagram' ? 'Reel' : 'Video',
+            fechaPublicacion: hoy,
+            cantidadFotos: ''
+        });
+        setJoyasSeleccionadas([]);
+        setIsModalOpen(true);
+    };
+
     const abrirParaEditar = (pub) => {
         setEditingId(pub.id);
         setNuevoVideo({
@@ -62,7 +80,7 @@ const ContentGallery = () => {
     };
 
     const cerrarModal = () => {
-        setNuevoVideo({ titulo: '', plataforma: 'Instagram', formato: 'Reel', fechaPublicacion: hoy, cantidadFotos: '' });
+        setNuevoVideo({ titulo: '', plataforma: activePlatform, formato: 'Reel', fechaPublicacion: hoy, cantidadFotos: '' });
         setJoyasSeleccionadas([]);
         setEditingId(null);
         setIsModalOpen(false);
@@ -77,32 +95,35 @@ const ContentGallery = () => {
     const handleRegistrarVideo = async (e) => {
         e.preventDefault();
 
-        const payload = {
+        const crearPayload = (plat, form) => ({
             titulo: nuevoVideo.titulo,
-            plataforma: nuevoVideo.plataforma,
-            formato: nuevoVideo.formato,
+            plataforma: plat,
+            formato: form,
             fechaPublicacion: nuevoVideo.fechaPublicacion,
-            cantidadFotos: nuevoVideo.formato.includes('Carrusel') ? Number(nuevoVideo.cantidadFotos) : null,
+            cantidadFotos: form.includes('Carrusel') ? Number(nuevoVideo.cantidadFotos) : null,
             joyas: joyasSeleccionadas.map(id => ({ id: Number(id) }))
-        };
+        });
 
         try {
-            const url = editingId
-                ? `https://joyas-byluxo1.onrender.com/api/publicaciones/${editingId}`
-                : 'https://joyas-byluxo1.onrender.com/api/publicaciones';
+            // Lógica para crear en ambas plataformas a la vez
+            if (nuevoVideo.plataforma === 'Ambas (IG + TikTok)' && !editingId) {
+                const formatoIG = nuevoVideo.formato.includes('Carrusel') ? 'Carrusel' : 'Reel';
+                const formatoTK = nuevoVideo.formato.includes('Carrusel') ? 'Carrusel' : 'Video';
 
-            const method = editingId ? 'PUT' : 'POST';
+                const payloadIG = crearPayload('Instagram', formatoIG);
+                const payloadTK = crearPayload('TikTok', formatoTK);
 
-            const response = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                cerrarModal();
-                cargarDatos();
+                await fetch('https://joyas-byluxo1.onrender.com/api/publicaciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadIG) });
+                await fetch('https://joyas-byluxo1.onrender.com/api/publicaciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadTK) });
+            } else {
+                const payload = crearPayload(nuevoVideo.plataforma, nuevoVideo.formato);
+                const url = editingId ? `https://joyas-byluxo1.onrender.com/api/publicaciones/${editingId}` : 'https://joyas-byluxo1.onrender.com/api/publicaciones';
+                const method = editingId ? 'PUT' : 'POST';
+                await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             }
+
+            cerrarModal();
+            cargarDatos();
         } catch (error) {
             console.error("Error al registrar/editar video:", error);
         }
@@ -130,14 +151,25 @@ const ContentGallery = () => {
             }
         });
 
-        if (joyasAgotadas === totalJoyasVideo) {
-            return { msg: "🚨 BORRAR: Joya(s) Agotada(s)", color: "text-red-400 bg-red-400/10 border-red-500/30 font-bold" };
-        }
-        if (joyasDescuadradas > 0 || (joyasAgotadas > 0 && joyasAgotadas < totalJoyasVideo)) {
-            return { msg: "⚠️ ACTIVO - Falta Actualizar Lote", color: "text-yellow-400 bg-yellow-400/10 border-yellow-500/30 font-bold" };
-        }
+        if (joyasAgotadas === totalJoyasVideo) return { msg: "🚨 BORRAR: Joya(s) Agotada(s)", color: "text-red-400 bg-red-400/10 border-red-500/30 font-bold" };
+        if (joyasDescuadradas > 0 || (joyasAgotadas > 0 && joyasAgotadas < totalJoyasVideo)) return { msg: "⚠️ ACTIVO - Falta Actualizar Lote", color: "text-yellow-400 bg-yellow-400/10 border-yellow-500/30 font-bold" };
         return { msg: "✅ ACTIVO - Stock Blindado", color: "text-green-400 bg-green-400/10 border-green-500/30" };
     };
+
+    const pubsVisualizar = publicaciones
+        .filter(p => p.plataforma === activePlatform)
+        .filter(p => {
+            if (!searchTermGallery) return true;
+            if (p.titulo.toLowerCase().includes(searchTermGallery.toLowerCase())) return true;
+            if (p.relaciones && p.relaciones.some(rel => rel.joya.nombre.toLowerCase().includes(searchTermGallery.toLowerCase()))) return true;
+            return false;
+        });
+
+    const joyasParaElModal = inventario.filter(joya => {
+        const matchesCat = modalFiltroCategoria === '' || joya.categoria === modalFiltroCategoria;
+        const matchesStock = modalOcultarAgotados ? joya.stock > 0 : true;
+        return (matchesCat && matchesStock) || joyasSeleccionadas.includes(joya.id);
+    });
 
     const generarReporteEstratega = () => {
         setIsGenerating(true);
@@ -173,8 +205,6 @@ const ContentGallery = () => {
         }, 500);
     };
 
-    const pubsVisualizar = publicaciones.filter(p => p.plataforma === activePlatform);
-
     return (
         <div className="max-w-7xl mx-auto p-6 bg-zinc-950 text-gray-200 rounded-xl shadow-2xl border border-zinc-800 font-sans mt-6">
             <div className="flex justify-between items-center mb-6 pb-6 border-b border-zinc-800">
@@ -186,7 +216,7 @@ const ContentGallery = () => {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-white text-black font-bold px-4 py-2 rounded hover:bg-zinc-200 transition-colors shadow-lg text-sm tracking-widest">
+                    <button onClick={abrirParaCrear} className="flex items-center gap-2 bg-white text-black font-bold px-4 py-2 rounded hover:bg-zinc-200 transition-colors shadow-lg text-sm tracking-widest">
                         <Plus className="w-4 h-4" /> ANOTAR VIDEO
                     </button>
                     <button onClick={cargarDatos} className="p-2 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 transition-colors" title="Actualizar Datos">
@@ -204,15 +234,28 @@ const ContentGallery = () => {
                         <Video className="w-5 h-5" /> TIKTOK
                     </button>
                 </div>
-                <button onClick={generarReporteEstratega} disabled={isGenerating} className="w-full md:w-auto bg-zinc-800 text-zinc-300 font-bold px-6 py-3 rounded hover:bg-zinc-700 hover:text-white border border-zinc-700 transition-colors shadow-lg text-xs">
-                    {isGenerating ? 'Generando...' : `📋 COPIAR REPORTE ${activePlatform.toUpperCase()}`}
-                </button>
+
+                <div className="flex flex-1 items-center gap-3">
+                    <div className="flex items-center bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 w-full">
+                        <Search className="w-4 h-4 text-zinc-500 mr-2" />
+                        <input
+                            type="text"
+                            placeholder="Buscar video o joya..."
+                            value={searchTermGallery}
+                            onChange={(e) => setSearchTermGallery(e.target.value)}
+                            className="bg-transparent border-none outline-none text-sm text-white placeholder-zinc-500 w-full"
+                        />
+                    </div>
+                    <button onClick={generarReporteEstratega} disabled={isGenerating} className="w-full md:w-auto bg-zinc-800 text-zinc-300 font-bold px-6 py-2.5 rounded hover:bg-zinc-700 hover:text-white border border-zinc-700 transition-colors shadow-lg text-xs tracking-wider">
+                        {isGenerating ? 'Generando...' : `📋 COPIAR REPORTE`}
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {pubsVisualizar.length === 0 ? (
                     <div className="col-span-full p-10 text-center text-zinc-500 border border-zinc-800 border-dashed rounded-xl">
-                        No hay videos registrados en {activePlatform} aún.
+                        No hay videos registrados o ninguno coincide con la búsqueda.
                     </div>
                 ) : (
                     pubsVisualizar.map((pub) => {
@@ -256,11 +299,11 @@ const ContentGallery = () => {
                                                     <div key={rel.id} className={`text-xs p-2 rounded border flex flex-col gap-1 ${descuadrado ? 'bg-yellow-950/20 border-yellow-700/50 text-yellow-300' : 'bg-zinc-950 border-zinc-800 text-zinc-400'}`}>
                                                         <span className="truncate font-bold text-zinc-200">{rel.joya.nombre}</span>
                                                         <div className="flex justify-between items-center text-[10px]">
-                                                            <div className="flex items-center gap-1.5" title="Stock que había al grabar el video">
+                                                            <div className="flex items-center gap-1.5">
                                                                 <Zap className="w-3 h-3 text-zinc-500" />
                                                                 <span>G: {rel.stockAlSubir}u</span>
                                                             </div>
-                                                            <div className="flex items-center gap-1.5" title="Stock actual en bodega">
+                                                            <div className="flex items-center gap-1.5">
                                                                 <PackageSearch className={`w-3.5 h-3.5 ${descuadrado ? 'text-yellow-400' : 'text-zinc-500'}`} />
                                                                 <span className={descuadrado ? 'font-bold' : ''}>A: {stockActualVal}u</span>
                                                             </div>
@@ -332,9 +375,10 @@ const ContentGallery = () => {
 
                             <div className="flex flex-col md:col-span-1">
                                 <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">Plataforma</label>
-                                <select value={nuevoVideo.plataforma} onChange={(e) => setNuevoVideo({...nuevoVideo, plataforma: e.target.value, formato: e.target.value === 'Instagram' ? 'Reel' : 'Video'})} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 text-sm focus:outline-none focus:border-zinc-400">
+                                <select value={nuevoVideo.plataforma} onChange={(e) => setNuevoVideo({...nuevoVideo, plataforma: e.target.value, formato: e.target.value.includes('Instagram') ? 'Reel' : 'Video'})} className="p-2.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-300 text-sm focus:outline-none focus:border-zinc-400">
                                     <option value="Instagram">Instagram</option>
                                     <option value="TikTok">TikTok</option>
+                                    {!editingId && <option value="Ambas (IG + TikTok)">Ambas (IG + TikTok)</option>}
                                 </select>
                             </div>
 
@@ -349,10 +393,15 @@ const ContentGallery = () => {
                                             <option value="Reel + Historia">Reel + Historia</option>
                                             <option value="Carrusel + Historia">Carrusel + Historia</option>
                                         </>
-                                    ) : (
+                                    ) : nuevoVideo.plataforma === 'TikTok' ? (
                                         <>
                                             <option value="Video">Video</option>
                                             <option value="Carrusel">Carrusel</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="Reel / Video">Reel (IG) / Video (TK)</option>
+                                            <option value="Carrusel">Carrusel (IG y TK)</option>
                                         </>
                                     )}
                                 </select>
@@ -367,11 +416,38 @@ const ContentGallery = () => {
                         </div>
 
                         <div className="bg-zinc-900/30 p-4 rounded-lg border border-zinc-800 mb-6">
-                            <h3 className="text-xs font-bold tracking-wide mb-3 text-zinc-100 uppercase">💎 ¿Qué joyas aparecen en este contenido?</h3>
-                            <p className="text-[10px] text-zinc-500 mb-3">(Si es un vlog o contenido general, puedes dejar esto vacío)</p>
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="text-xs font-bold tracking-wide text-zinc-100 uppercase">💎 ¿Qué joyas aparecen?</h3>
+                                <div className="flex items-center gap-3">
+                                    <select
+                                        value={modalFiltroCategoria}
+                                        onChange={(e) => setModalFiltroCategoria(e.target.value)}
+                                        className="text-xs bg-zinc-800 border border-zinc-700 text-white rounded p-1 focus:outline-none focus:border-zinc-500"
+                                    >
+                                        <option value="">Todas</option>
+                                        <option value="Cadena">Cadena</option>
+                                        <option value="Pulsera">Pulsera</option>
+                                        <option value="Aro">Aro</option>
+                                        <option value="Tobillera">Tobillera</option>
+                                        <option value="Colgante">Colgante</option>
+                                        <option value="Anillo">Anillo</option>
+                                    </select>
+                                    <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer hover:text-white transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={modalOcultarAgotados}
+                                            onChange={(e) => setModalOcultarAgotados(e.target.checked)}
+                                            className="w-3 h-3 accent-white bg-zinc-800 border-zinc-700 rounded cursor-pointer"
+                                        />
+                                        Ocultar agotados
+                                    </label>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2">
-                                {inventario.map(joya => (
+                                {joyasParaElModal.map(joya => (
                                     <button
+                                        type="button"
                                         key={joya.id}
                                         onClick={() => toggleJoyaSeleccionada(joya.id)}
                                         className={`p-2 text-left text-xs rounded border transition-colors ${joyasSeleccionadas.includes(joya.id) ? 'bg-green-500/20 border-green-500 text-green-400 font-bold' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}
@@ -380,6 +456,9 @@ const ContentGallery = () => {
                                         {joya.nombre}
                                     </button>
                                 ))}
+                                {joyasParaElModal.length === 0 && (
+                                    <p className="text-xs text-zinc-500 col-span-3 text-center py-4">No hay joyas que coincidan con estos filtros.</p>
+                                )}
                             </div>
                         </div>
 

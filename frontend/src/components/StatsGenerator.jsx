@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import logoByLuxo from '../assets/logo.jpeg';
 
 const initialMetrics = {
-    // Interacciones base
-    likes: '', comentarios: '', compartidos: '', reposts: '', guardados: '',
+    // Interacciones base separadas IG/FB
+    meGustaIG: '', meGustaFB: '',
+    comentariosIG: '', comentariosFB: '',
+    compartidos: '', reposts: '', guardados: '',
 
     // Alcance y Vistas
     reproIG: '', reproFB: '', cuentasAlcanzadas: '', personasVieron: '', visualizaciones: '',
@@ -12,7 +14,7 @@ const initialMetrics = {
     tiempoMedio: '', duracionOriginal: '', porcentajeOmision: '',
 
     // Detalle Interacción
-    meGustaTotales: '', comentariosTotales: '', distribucionLikesFotos: '',
+    distribucionLikesFotos: '',
 
     // Perfil
     visitasPerfil: '', nuevosSeguidores: '',
@@ -71,8 +73,8 @@ const StatsGenerator = () => {
                 plataforma: pub.plataforma,
                 formato: pub.formato,
                 cantidadFotos: pub.cantidadFotos || '',
-                likes: pub.likes || '',
-                comentarios: pub.comentarios || '',
+                meGustaIG: pub.likes || '',
+                comentariosIG: pub.comentarios || '',
                 guardados: pub.guardados || '',
                 compartidos: pub.compartidos || '',
                 reproIG: pub.plataforma === 'Instagram' ? pub.reproducciones || '' : '',
@@ -93,15 +95,17 @@ const StatsGenerator = () => {
             return;
         }
 
-        // Actualización silenciosa en BD solo para las 5 métricas básicas de la vitrina
         const repros = formData.plataforma === 'Instagram'
             ? (Number(formData.reproIG) + Number(formData.reproFB))
             : Number(formData.reproTK);
 
+        const totalLikes = (Number(formData.meGustaIG) || 0) + (Number(formData.meGustaFB) || 0);
+        const totalComents = (Number(formData.comentariosIG) || 0) + (Number(formData.comentariosFB) || 0);
+
         const metricasBD = {
             reproducciones: repros || 0,
-            likes: Number(formData.likes) || 0,
-            comentarios: Number(formData.comentarios) || 0,
+            likes: totalLikes,
+            comentarios: totalComents,
             guardados: Number(formData.guardados) || 0,
             compartidos: Number(formData.compartidos) || 0
         };
@@ -117,14 +121,13 @@ const StatsGenerator = () => {
             console.error("Error al actualizar métricas en BD:", error);
         }
 
-        // GENERACIÓN DEL TEXTO ULTRA DETALLADO
         let reporte = `📊 REPORTE DE ESTADÍSTICAS - ${formData.plataforma.toUpperCase()} (${formData.formato.toUpperCase()})\n`;
         reporte += `📌 Joya/Título: ${formData.tituloVideo}\n\n`;
 
         if (formData.plataforma === 'Instagram') {
             if (formData.formato.includes('Reel')) {
                 reporte += `[Métricas de Interacción Principal]\n`;
-                reporte += `- Likes: ${formData.likes || 0} | Comentarios: ${formData.comentarios || 0}\n`;
+                reporte += `- Likes: ${totalLikes || 0} | Comentarios: ${totalComents || 0}\n`;
                 reporte += `- Reposts: ${formData.reposts || 0} | Compartidos: ${formData.compartidos || 0} | Guardados: ${formData.guardados || 0}\n\n`;
 
                 reporte += `[Alcance y Retención]\n`;
@@ -135,7 +138,8 @@ const StatsGenerator = () => {
                 reporte += `- Porcentaje de Omisión: ${formData.porcentajeOmision || 0}%\n\n`;
 
                 reporte += `[Detalle de Interacción y Perfil]\n`;
-                reporte += `- Me gusta (IG+FB): ${formData.meGustaTotales || 0} | Comentarios (IG+FB): ${formData.comentariosTotales || 0}\n`;
+                reporte += `- Me gusta (Totales): ${totalLikes} (IG: ${formData.meGustaIG || 0} | FB: ${formData.meGustaFB || 0})\n`;
+                reporte += `- Comentarios (Totales): ${totalComents} (IG: ${formData.comentariosIG || 0} | FB: ${formData.comentariosFB || 0})\n`;
                 reporte += `- Visitas al Perfil: ${formData.visitasPerfil || 0} | Nuevos Seguidores: ${formData.nuevosSeguidores || 0}\n\n`;
 
                 reporte += `[Audiencia (Quién vio tu reel)]\n`;
@@ -144,7 +148,7 @@ const StatsGenerator = () => {
 
             if (formData.formato.includes('Carrusel')) {
                 reporte += `[Métricas de Interacción Principal]\n`;
-                reporte += `- Likes: ${formData.likes || 0} | Comentarios: ${formData.comentarios || 0}\n`;
+                reporte += `- Likes: ${totalLikes || 0} | Comentarios: ${totalComents || 0}\n`;
                 reporte += `- Reposts: ${formData.reposts || 0} | Compartidos: ${formData.compartidos || 0} | Guardados: ${formData.guardados || 0}\n\n`;
 
                 reporte += `[Alcance y Conversión]\n`;
@@ -168,8 +172,8 @@ const StatsGenerator = () => {
                 reporte += `- Cuentas Alcanzadas: ${formData.cuentasAlcanzadas || 0}\n\n`;
 
                 reporte += `[Interacciones y Perfil]\n`;
-                const intTot = (Number(formData.likes) || 0) + (Number(formData.respuestas) || 0) + (Number(formData.compartidos) || 0);
-                reporte += `- Interacciones Totales: ${intTot} (Likes: ${formData.likes || 0} | Respuestas: ${formData.respuestas || 0} | Compartidos: ${formData.compartidos || 0})\n`;
+                const intTot = totalLikes + (Number(formData.respuestas) || 0) + (Number(formData.compartidos) || 0);
+                reporte += `- Interacciones Totales: ${intTot} (Likes: ${totalLikes || 0} | Respuestas: ${formData.respuestas || 0} | Compartidos: ${formData.compartidos || 0})\n`;
                 reporte += `- Visitas al Perfil: ${formData.visitasPerfil || 0} | Nuevos Seguidores: ${formData.nuevosSeguidores || 0}\n\n`;
 
                 reporte += `[Navegación]\n`;
@@ -190,7 +194,7 @@ const StatsGenerator = () => {
             if (formData.formato === 'Video') {
                 reporte += `[Métricas de Interacción Principal]\n`;
                 reporte += `- Reproducciones: ${formData.reproTK || 0}\n`;
-                reporte += `- Likes: ${formData.likes || 0} | Comentarios: ${formData.comentarios || 0}\n`;
+                reporte += `- Likes: ${totalLikes || 0} | Comentarios: ${totalComents || 0}\n`;
                 reporte += `- Compartidos: ${formData.compartidos || 0} | Guardados: ${formData.guardados || 0}\n\n`;
 
                 reporte += `[Retención y Conversión]\n`;
@@ -204,7 +208,7 @@ const StatsGenerator = () => {
             if (formData.formato === 'Carrusel') {
                 reporte += `[Métricas de Interacción Principal]\n`;
                 reporte += `- Reproducciones: ${formData.reproTK || 0}\n`;
-                reporte += `- Likes: ${formData.likes || 0} | Comentarios: ${formData.comentarios || 0}\n`;
+                reporte += `- Likes: ${totalLikes || 0} | Comentarios: ${totalComents || 0}\n`;
                 reporte += `- Compartidos: ${formData.compartidos || 0} | Guardados: ${formData.guardados || 0}\n\n`;
 
                 reporte += `[Retención Visual y Conversión]\n`;
@@ -255,11 +259,9 @@ const StatsGenerator = () => {
                                 <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
                                     <h3 className="text-xs font-bold mb-3 text-zinc-100 uppercase border-b border-zinc-700 pb-2">💬 Interacción</h3>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <InputBox type="number" label="Likes" name="likes" value={formData.likes} onChange={handleChangeForm} />
-                                        <InputBox type="number" label="Comentarios" name="comentarios" value={formData.comentarios} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Reposts" name="reposts" value={formData.reposts} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Compartidos" name="compartidos" value={formData.compartidos} onChange={handleChangeForm} />
-                                        <InputBox type="number" label="Guardados" name="guardados" value={formData.guardados} onChange={handleChangeForm} />
+                                        <div className="col-span-2"><InputBox type="number" label="Guardados" name="guardados" value={formData.guardados} onChange={handleChangeForm} /></div>
                                     </div>
                                 </div>
                                 <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
@@ -268,16 +270,18 @@ const StatsGenerator = () => {
                                         <InputBox type="number" label="Repro IG" name="reproIG" value={formData.reproIG} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Repro FB" name="reproFB" value={formData.reproFB} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Cuentas Alcanzadas" name="cuentasAlcanzadas" value={formData.cuentasAlcanzadas} onChange={handleChangeForm} />
+                                        <InputBox type="number" label="% Omisión" name="porcentajeOmision" value={formData.porcentajeOmision} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Tiempo Medio (s)" name="tiempoMedio" value={formData.tiempoMedio} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Duración Reel (s)" name="duracionOriginal" value={formData.duracionOriginal} onChange={handleChangeForm} />
-                                        <InputBox type="number" label="% Omisión" name="porcentajeOmision" value={formData.porcentajeOmision} onChange={handleChangeForm} />
                                     </div>
                                 </div>
                                 <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
                                     <h3 className="text-xs font-bold mb-3 text-zinc-100 uppercase border-b border-zinc-700 pb-2">👥 Totales y Perfil</h3>
-                                    <div className="grid grid-cols-1 gap-2">
-                                        <InputBox type="number" label="Me Gusta (IG+FB)" name="meGustaTotales" value={formData.meGustaTotales} onChange={handleChangeForm} />
-                                        <InputBox type="number" label="Coments (IG+FB)" name="comentariosTotales" value={formData.comentariosTotales} onChange={handleChangeForm} />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <InputBox type="number" label="Me Gusta IG" name="meGustaIG" value={formData.meGustaIG} onChange={handleChangeForm} borderClass="border-blue-500/50" />
+                                        <InputBox type="number" label="Me Gusta FB" name="meGustaFB" value={formData.meGustaFB} onChange={handleChangeForm} borderClass="border-blue-500/50" />
+                                        <InputBox type="number" label="Coments IG" name="comentariosIG" value={formData.comentariosIG} onChange={handleChangeForm} borderClass="border-blue-500/50" />
+                                        <InputBox type="number" label="Coments FB" name="comentariosFB" value={formData.comentariosFB} onChange={handleChangeForm} borderClass="border-blue-500/50" />
                                         <InputBox type="number" label="Visitas Perfil" name="visitasPerfil" value={formData.visitasPerfil} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Nuevos Segs" name="nuevosSeguidores" value={formData.nuevosSeguidores} onChange={handleChangeForm} />
                                     </div>
@@ -298,11 +302,13 @@ const StatsGenerator = () => {
                                 <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
                                     <h3 className="text-xs font-bold mb-3 text-zinc-100 uppercase border-b border-zinc-700 pb-2">💬 Interacción</h3>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <InputBox type="number" label="Likes" name="likes" value={formData.likes} onChange={handleChangeForm} />
-                                        <InputBox type="number" label="Comentarios" name="comentarios" value={formData.comentarios} onChange={handleChangeForm} />
+                                        <InputBox type="number" label="Me Gusta IG" name="meGustaIG" value={formData.meGustaIG} onChange={handleChangeForm} borderClass="border-blue-500/50" />
+                                        <InputBox type="number" label="Me Gusta FB" name="meGustaFB" value={formData.meGustaFB} onChange={handleChangeForm} borderClass="border-blue-500/50" />
+                                        <InputBox type="number" label="Coments IG" name="comentariosIG" value={formData.comentariosIG} onChange={handleChangeForm} borderClass="border-blue-500/50" />
+                                        <InputBox type="number" label="Coments FB" name="comentariosFB" value={formData.comentariosFB} onChange={handleChangeForm} borderClass="border-blue-500/50" />
                                         <InputBox type="number" label="Reposts" name="reposts" value={formData.reposts} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Compartidos" name="compartidos" value={formData.compartidos} onChange={handleChangeForm} />
-                                        <InputBox type="number" label="Guardados" name="guardados" value={formData.guardados} onChange={handleChangeForm} />
+                                        <div className="col-span-2"><InputBox type="number" label="Guardados" name="guardados" value={formData.guardados} onChange={handleChangeForm} /></div>
                                     </div>
                                 </div>
                                 <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800 md:col-span-2">
@@ -313,7 +319,7 @@ const StatsGenerator = () => {
                                         <InputBox type="number" label="Visitas Perfil" name="visitasPerfil" value={formData.visitasPerfil} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Nuevos Segs" name="nuevosSeguidores" value={formData.nuevosSeguidores} onChange={handleChangeForm} />
                                         <div className="col-span-2">
-                                            <InputBox type="text" label="Distribución Likes (Ej: Foto 1: 15, Foto 2: 5)" name="distribucionLikesFotos" value={formData.distribucionLikesFotos} onChange={handleChangeForm} borderClass="border-blue-500/50 bg-blue-900/10" />
+                                            <InputBox type="text" label="Distribución Likes (Ej: Foto 1: 15, Foto 2: 5)" name="distribucionLikesFotos" value={formData.distribucionLikesFotos} onChange={handleChangeForm} borderClass="border-pink-500/50 bg-pink-900/10" />
                                         </div>
                                     </div>
                                 </div>
@@ -341,7 +347,7 @@ const StatsGenerator = () => {
                                 <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
                                     <h3 className="text-xs font-bold mb-3 text-zinc-100 uppercase border-b border-pink-900/50 pb-2 text-pink-400">💬 Interacción y Perfil</h3>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <InputBox type="number" label="Likes" name="likes" value={formData.likes} onChange={handleChangeForm} />
+                                        <InputBox type="number" label="Likes" name="meGustaIG" value={formData.meGustaIG} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Respuestas" name="respuestas" value={formData.respuestas} onChange={handleChangeForm} />
                                         <div className="col-span-2"><InputBox type="number" label="Compartidos" name="compartidos" value={formData.compartidos} onChange={handleChangeForm} /></div>
                                         <InputBox type="number" label="Visitas Perfil" name="visitasPerfil" value={formData.visitasPerfil} onChange={handleChangeForm} />
@@ -376,8 +382,8 @@ const StatsGenerator = () => {
                                     <h3 className="text-xs font-bold mb-3 text-zinc-100 uppercase border-b border-zinc-700 pb-2">💬 Interacción TK</h3>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="col-span-2"><InputBox type="number" label="Reproducciones" name="reproTK" value={formData.reproTK} onChange={handleChangeForm} /></div>
-                                        <InputBox type="number" label="Likes" name="likes" value={formData.likes} onChange={handleChangeForm} />
-                                        <InputBox type="number" label="Comentarios" name="comentarios" value={formData.comentarios} onChange={handleChangeForm} />
+                                        <InputBox type="number" label="Likes" name="meGustaIG" value={formData.meGustaIG} onChange={handleChangeForm} />
+                                        <InputBox type="number" label="Comentarios" name="comentariosIG" value={formData.comentariosIG} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Compartidos" name="compartidos" value={formData.compartidos} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Guardados" name="guardados" value={formData.guardados} onChange={handleChangeForm} />
                                     </div>
@@ -408,8 +414,8 @@ const StatsGenerator = () => {
                                     <h3 className="text-xs font-bold mb-3 text-zinc-100 uppercase border-b border-zinc-700 pb-2">💬 Interacción TK</h3>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="col-span-2"><InputBox type="number" label="Reproducciones" name="reproTK" value={formData.reproTK} onChange={handleChangeForm} /></div>
-                                        <InputBox type="number" label="Likes" name="likes" value={formData.likes} onChange={handleChangeForm} />
-                                        <InputBox type="number" label="Comentarios" name="comentarios" value={formData.comentarios} onChange={handleChangeForm} />
+                                        <InputBox type="number" label="Likes" name="meGustaIG" value={formData.meGustaIG} onChange={handleChangeForm} />
+                                        <InputBox type="number" label="Comentarios" name="comentariosIG" value={formData.comentariosIG} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Compartidos" name="compartidos" value={formData.compartidos} onChange={handleChangeForm} />
                                         <InputBox type="number" label="Guardados" name="guardados" value={formData.guardados} onChange={handleChangeForm} />
                                     </div>

@@ -27,13 +27,12 @@ public class PublicacionService {
 
     @Transactional
     public Publicacion registrarPublicacion(Publicacion publicacion) {
+
         if (publicacion.getFechaPublicacion() == null) {
             publicacion.setFechaPublicacion(LocalDate.now());
         }
 
         publicacion.setEstado("Activo");
-
-        // 1. Guardamos la publicación base
         Publicacion nuevaPub = publicacionRepository.save(publicacion);
 
         if (publicacion.getJoyas() != null && !publicacion.getJoyas().isEmpty()){
@@ -41,22 +40,33 @@ public class PublicacionService {
                 Joya joyaReal = joyaRepository.findById(joyaRef.getId())
                         .orElseThrow(() -> new RuntimeException("Joya no encontrada"));
 
-                // 2. ACTUALIZAMOS EL ESTADO DE REDES
                 EstadoRedes redes = joyaReal.getEstadoRedes();
                 String fechaHoy = LocalDate.now().toString();
+                String plat = publicacion.getPlataforma();
+                String form = publicacion.getFormato();
 
-                if ("Instagram".equalsIgnoreCase(publicacion.getPlataforma())){
+                // LÓGICA DE ECOSISTEMA COMPLETO
+                if ("Instagram".equalsIgnoreCase(plat)){
                     redes.setIgEstado("Activo");
                     redes.setIgUltimaFecha(fechaHoy);
-                    redes.setIgFormato(publicacion.getFormato());
-                } else if ("TikTok".equalsIgnoreCase(publicacion.getPlataforma())){
+                    redes.setIgFormato(form);
+                } else if ("TikTok".equalsIgnoreCase(plat)){
                     redes.setTkEstado("Activo");
                     redes.setTkUltimaFecha(fechaHoy);
-                    redes.setTkFormato(publicacion.getFormato());
+                    redes.setTkFormato(form);
+                } else if ("Marketplace".equalsIgnoreCase(plat)){
+                    redes.setMkpEstado("Activo");
+                    redes.setMkpUltimaFecha(fechaHoy);
+                } else if ("WhatsApp".equalsIgnoreCase(plat)){
+                    if ("Catálogo".equalsIgnoreCase(form)) {
+                        redes.setWspCatalogo("Activo");
+                    } else if ("Estado".equalsIgnoreCase(form)) {
+                        redes.setWspUltimaFecha(fechaHoy);
+                    }
                 }
+
                 joyaRepository.save(joyaReal);
 
-                // 3. CONGELAMOS EL STOCK EN LA TABLA INTERMEDIA
                 PublicacionJoya relacion = new PublicacionJoya();
                 relacion.setPublicacion(nuevaPub);
                 relacion.setJoya(joyaReal);
