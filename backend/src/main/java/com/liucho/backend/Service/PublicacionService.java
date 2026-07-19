@@ -27,7 +27,10 @@ public class PublicacionService {
 
     @Transactional
     public Publicacion registrarPublicacion(Publicacion publicacion) {
-        publicacion.setFechaPublicacion(LocalDate.now());
+        if (publicacion.getFechaPublicacion() == null) {
+            publicacion.setFechaPublicacion(LocalDate.now());
+        }
+
         publicacion.setEstado("Activo");
 
         // 1. Guardamos la publicación base
