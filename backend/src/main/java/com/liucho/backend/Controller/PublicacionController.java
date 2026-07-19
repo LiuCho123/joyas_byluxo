@@ -11,7 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/publicaciones")
@@ -27,6 +29,52 @@ public class PublicacionController {
     @Autowired
     private PublicacionService publicacionService;
 
+    // --- MOTOR MAESTRO DE RECÁLCULO ---
+    // Analiza la joya y le asigna el estado exacto (Activo, Archivado, No subido o Falta actualizar)
+    private void recalcularEstadoRedes(Joya joya) {
+        List<Publicacion> todas = publicacionRepository.findAll();
+        boolean enIg = false, enTk = false, enMkp = false, enWsp = false;
+        boolean igDesc = false, tkDesc = false, mkpDesc = false, wspDesc = false;
+
+        for (Publicacion p : todas) {
+            if (p.getRelaciones() != null) {
+                for (PublicacionJoya r : p.getRelaciones()) {
+                    if (r.getJoya().getId().equals(joya.getId())) {
+                        String plat = p.getPlataforma() != null ? p.getPlataforma() : "";
+                        boolean descuadrado = !r.getStockAlSubir().equals(joya.getStock());
+
+                        if (plat.equalsIgnoreCase("Instagram")) { enIg = true; if(descuadrado) igDesc = true; }
+                        if (plat.equalsIgnoreCase("TikTok")) { enTk = true; if(descuadrado) tkDesc = true; }
+                        if (plat.equalsIgnoreCase("Marketplace")) { enMkp = true; if(descuadrado) mkpDesc = true; }
+                        if (plat.equalsIgnoreCase("WhatsApp") && "Catálogo".equalsIgnoreCase(p.getFormato())) {
+                            enWsp = true; if(descuadrado) wspDesc = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        EstadoRedes redes = joya.getEstadoRedes();
+        if (redes == null) {
+            redes = new EstadoRedes();
+            joya.setEstadoRedes(redes);
+        }
+
+        // Regla estricta: Stock cero = Archivado inmediato
+        if (joya.getStock() == null || joya.getStock() == 0) {
+            redes.setIgEstado("Archivado");
+            redes.setTkEstado("Archivado");
+            redes.setMkpEstado("Archivado");
+            redes.setWspCatalogo("Archivado");
+        } else {
+            redes.setIgEstado(enIg ? (igDesc ? "Falta actualizar" : "Activo") : "No subido");
+            redes.setTkEstado(enTk ? (tkDesc ? "Falta actualizar" : "Activo") : "No subido");
+            redes.setMkpEstado(enMkp ? (mkpDesc ? "Falta actualizar" : "Activo") : "No subido");
+            redes.setWspCatalogo(enWsp ? (wspDesc ? "Falta actualizar" : "Activo") : "No subido");
+        }
+        joyaRepository.save(joya);
+    }
+
     @GetMapping
     public List<Publicacion> obtenerTodas(){
         List<Publicacion> todas = publicacionRepository.findAll();
@@ -39,7 +87,16 @@ public class PublicacionController {
                     pub.getFechaPublicacion() != null &&
                     pub.getFechaPublicacion().isBefore(hace5Dias)) {
 
+                Set<Joya> joyasAfectadas = new HashSet<>();
+                if(pub.getRelaciones() != null) {
+                    pub.getRelaciones().forEach(r -> joyasAfectadas.add(r.getJoya()));
+                }
+
                 publicacionRepository.delete(pub);
+                publicacionRepository.flush(); // Fuerza borrado inmediato
+
+                for(Joya j : joyasAfectadas) recalcularEstadoRedes(j);
+
                 huboBorrados = true;
             }
         }
@@ -49,60 +106,59 @@ public class PublicacionController {
 
     @PostMapping
     public Publicacion registrarVideoNuevo(@RequestBody Publicacion publicacion){
-        return publicacionService.registrarPublicacion(publicacion);
+        Publicacion pubGuardada = publicacionService.registrarPublicacion(publicacion);
+
+        // Forzar recálculo tras crear para asegurar los estados
+        if(pubGuardada.getRelaciones() != null) {
+            for(PublicacionJoya pj : pubGuardada.getRelaciones()) {
+                recalcularEstadoRedes(pj.getJoya());
+            }
+        }
+        return pubGuardada;
     }
 
     @PutMapping("/{id}")
     public Publicacion editarVideo(@PathVariable Long id, @RequestBody Publicacion datosActualizados){
         return publicacionRepository.findById(id).map(pub -> {
+
+            // 1. Respaldar IDs de joyas antiguas para recalcularlas si las quitas
+            Set<Long> idsParaRecalcular = new HashSet<>();
+            if (pub.getRelaciones() != null) {
+                pub.getRelaciones().forEach(r -> idsParaRecalcular.add(r.getJoya().getId()));
+            }
+
+            // 2. Actualizar datos base del video
             pub.setTitulo(datosActualizados.getTitulo());
             pub.setPlataforma(datosActualizados.getPlataforma());
             pub.setFormato(datosActualizados.getFormato());
             pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
             pub.setCantidadFotos(datosActualizados.getCantidadFotos());
 
-            // Actualizar joyas, re-congelar stock y ACTUALIZAR ESTADO DE REDES
+            // 3. Recrear relaciones
+            pub.getRelaciones().clear();
             if(datosActualizados.getJoyas() != null) {
-                pub.getRelaciones().clear();
                 for(Joya joyaRef : datosActualizados.getJoyas()) {
                     Joya joyaReal = joyaRepository.findById(joyaRef.getId()).orElse(null);
                     if(joyaReal != null) {
-                        // 1. Actualizar Estados de Redes
-                        EstadoRedes redes = joyaReal.getEstadoRedes();
-                        String fechaHoy = LocalDate.now().toString();
-                        String plat = pub.getPlataforma();
-                        String form = pub.getFormato();
-
-                        if ("Instagram".equalsIgnoreCase(plat)){
-                            redes.setIgEstado("Activo");
-                            redes.setIgUltimaFecha(fechaHoy);
-                            redes.setIgFormato(form);
-                        } else if ("TikTok".equalsIgnoreCase(plat)){
-                            redes.setTkEstado("Activo");
-                            redes.setTkUltimaFecha(fechaHoy);
-                            redes.setTkFormato(form);
-                        } else if ("Marketplace".equalsIgnoreCase(plat)){
-                            redes.setMkpEstado("Activo");
-                            redes.setMkpUltimaFecha(fechaHoy);
-                        } else if ("WhatsApp".equalsIgnoreCase(plat)){
-                            if ("Catálogo".equalsIgnoreCase(form)) {
-                                redes.setWspCatalogo("Activo");
-                            } else if ("Estado".equalsIgnoreCase(form)) {
-                                redes.setWspUltimaFecha(fechaHoy);
-                            }
-                        }
-                        joyaRepository.save(joyaReal);
-
-                        // 2. Congelar Stock
                         PublicacionJoya relacion = new PublicacionJoya();
                         relacion.setPublicacion(pub);
                         relacion.setJoya(joyaReal);
                         relacion.setStockAlSubir(joyaReal.getStock());
                         pub.getRelaciones().add(relacion);
+
+                        idsParaRecalcular.add(joyaReal.getId());
                     }
                 }
             }
-            return publicacionRepository.save(pub);
+
+            Publicacion pubGuardada = publicacionRepository.saveAndFlush(pub);
+
+            // 4. Recalcular TODO (las que sacaste del video y las nuevas que pusiste)
+            for(Long joyaId : idsParaRecalcular) {
+                joyaRepository.findById(joyaId).ifPresent(this::recalcularEstadoRedes);
+            }
+
+            return pubGuardada;
         }).orElseThrow(() -> new RuntimeException("Publicación no encontrada"));
     }
 
@@ -113,6 +169,20 @@ public class PublicacionController {
 
     @DeleteMapping("/{id}")
     public void eliminarPublicacion(@PathVariable Long id){
-        publicacionRepository.deleteById(id);
+        Publicacion pub = publicacionRepository.findById(id).orElse(null);
+        if(pub != null) {
+            Set<Joya> joyasAfectadas = new HashSet<>();
+            if(pub.getRelaciones() != null) {
+                pub.getRelaciones().forEach(r -> joyasAfectadas.add(r.getJoya()));
+            }
+
+            publicacionRepository.delete(pub);
+            publicacionRepository.flush(); // Obligar a la BD a olvidar este video altiro
+
+            // Recalcular las joyas huérfanas
+            for(Joya j : joyasAfectadas) {
+                recalcularEstadoRedes(j);
+            }
+        }
     }
 }
