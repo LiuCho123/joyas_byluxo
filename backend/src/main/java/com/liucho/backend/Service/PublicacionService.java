@@ -23,58 +23,63 @@ public class PublicacionService {
     @Autowired private PublicacionRepository publicacionRepository;
     @Autowired private JoyaRepository joyaRepository;
     @Autowired private PublicacionJoyaRepository publicacionJoyaRepository;
-    @Autowired private EstadoRedesRepository estadoRedesRepository; // Inyectado para forzar el guardado
+    @Autowired private EstadoRedesRepository estadoRedesRepository;
 
-    // --- MOTOR MAESTRO DE RECÁLCULO BLINDADO ---
+    // --- MOTOR MAESTRO BLINDADO ANTI-CRASH ---
     @Transactional
     public void recalcularEstadoJoya(Long joyaId) {
-        Joya joya = joyaRepository.findById(joyaId).orElse(null);
-        if (joya == null) return;
+        try {
+            Joya joya = joyaRepository.findById(joyaId).orElse(null);
+            if (joya == null) return;
 
-        // Limpia basura en memoria antes de leer
-        publicacionJoyaRepository.flush();
+            publicacionJoyaRepository.flush();
+            List<PublicacionJoya> relaciones = publicacionJoyaRepository.findByJoyaId(joya.getId());
 
-        // Leemos EXACTAMENTE en qué videos está AHORA MISMO
-        List<PublicacionJoya> relaciones = publicacionJoyaRepository.findByJoyaId(joya.getId());
+            boolean enIg = false, enTk = false, enMkp = false, enWsp = false;
+            boolean igDesc = false, tkDesc = false, mkpDesc = false, wspDesc = false;
 
-        boolean enIg = false, enTk = false, enMkp = false, enWsp = false;
-        boolean igDesc = false, tkDesc = false, mkpDesc = false, wspDesc = false;
+            // Protección contra nulos
+            int stockActual = joya.getStock() != null ? joya.getStock() : 0;
 
-        for (PublicacionJoya r : relaciones) {
-            Publicacion p = r.getPublicacion();
-            if (p == null) continue;
+            for (PublicacionJoya r : relaciones) {
+                Publicacion p = r.getPublicacion();
+                if (p == null) continue;
 
-            String plat = p.getPlataforma() != null ? p.getPlataforma() : "";
-            boolean descuadrado = !r.getStockAlSubir().equals(joya.getStock());
+                String plat = p.getPlataforma() != null ? p.getPlataforma() : "";
+                int stockGrabado = r.getStockAlSubir() != null ? r.getStockAlSubir() : 0;
+                boolean descuadrado = stockGrabado != stockActual;
 
-            if (plat.equalsIgnoreCase("Instagram")) { enIg = true; if(descuadrado) igDesc = true; }
-            if (plat.equalsIgnoreCase("TikTok")) { enTk = true; if(descuadrado) tkDesc = true; }
-            if (plat.equalsIgnoreCase("Marketplace")) { enMkp = true; if(descuadrado) mkpDesc = true; }
-            if (plat.equalsIgnoreCase("WhatsApp") && "Catálogo".equalsIgnoreCase(p.getFormato())) {
-                enWsp = true; if(descuadrado) wspDesc = true;
+                if (plat.equalsIgnoreCase("Instagram")) { enIg = true; if(descuadrado) igDesc = true; }
+                if (plat.equalsIgnoreCase("TikTok")) { enTk = true; if(descuadrado) tkDesc = true; }
+                if (plat.equalsIgnoreCase("Marketplace")) { enMkp = true; if(descuadrado) mkpDesc = true; }
+                if (plat.equalsIgnoreCase("WhatsApp") && "Catálogo".equalsIgnoreCase(p.getFormato())) {
+                    enWsp = true; if(descuadrado) wspDesc = true;
+                }
             }
-        }
 
-        EstadoRedes redes = joya.getEstadoRedes();
-        if (redes == null) {
-            redes = new EstadoRedes();
-            redes.setJoya(joya);
-            joya.setEstadoRedes(redes);
-        }
+            EstadoRedes redes = joya.getEstadoRedes();
+            if (redes == null) {
+                redes = new EstadoRedes();
+                redes.setJoya(joya);
+                joya.setEstadoRedes(redes);
+            }
 
-        if (joya.getStock() == null || joya.getStock() == 0) {
-            redes.setIgEstado("Archivado"); redes.setTkEstado("Archivado");
-            redes.setMkpEstado("Archivado"); redes.setWspCatalogo("Archivado");
-        } else {
-            redes.setIgEstado(enIg ? (igDesc ? "Falta actualizar" : "Activo") : "No subido");
-            redes.setTkEstado(enTk ? (tkDesc ? "Falta actualizar" : "Activo") : "No subido");
-            redes.setMkpEstado(enMkp ? (mkpDesc ? "Falta actualizar" : "Activo") : "No subido");
-            redes.setWspCatalogo(enWsp ? (wspDesc ? "Falta actualizar" : "Activo") : "No subido");
-        }
+            if (stockActual == 0) {
+                redes.setIgEstado("Archivado"); redes.setTkEstado("Archivado");
+                redes.setMkpEstado("Archivado"); redes.setWspCatalogo("Archivado");
+            } else {
+                redes.setIgEstado(enIg ? (igDesc ? "Falta actualizar" : "Activo") : "No subido");
+                redes.setTkEstado(enTk ? (tkDesc ? "Falta actualizar" : "Activo") : "No subido");
+                redes.setMkpEstado(enMkp ? (mkpDesc ? "Falta actualizar" : "Activo") : "No subido");
+                redes.setWspCatalogo(enWsp ? (wspDesc ? "Falta actualizar" : "Activo") : "No subido");
+            }
 
-        // ¡GOLPE DE MARTILLO! Guardamos explícitamente en la BD.
-        estadoRedesRepository.save(redes);
-        joyaRepository.save(joya);
+            estadoRedesRepository.saveAndFlush(redes);
+            joyaRepository.saveAndFlush(joya);
+
+        } catch (Exception e) {
+            System.out.println("Error al recalcular la joya: " + e.getMessage());
+        }
     }
 
     @Transactional
@@ -119,7 +124,6 @@ public class PublicacionService {
         pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
         pub.setCantidadFotos(datosActualizados.getCantidadFotos());
 
-        // Destruimos las relaciones viejas para que no causen interferencia
         if(!pub.getRelaciones().isEmpty()) {
             publicacionJoyaRepository.deleteAll(pub.getRelaciones());
             publicacionJoyaRepository.flush();
@@ -154,8 +158,6 @@ public class PublicacionService {
             Set<Long> idsAfectados = new HashSet<>();
             if(pub.getRelaciones() != null) {
                 pub.getRelaciones().forEach(r -> idsAfectados.add(r.getJoya().getId()));
-
-                // DESTRUCCIÓN FÍSICA INMEDIATA
                 publicacionJoyaRepository.deleteAll(pub.getRelaciones());
                 publicacionJoyaRepository.flush();
             }

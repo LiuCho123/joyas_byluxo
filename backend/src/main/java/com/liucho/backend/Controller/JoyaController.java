@@ -4,6 +4,7 @@ import com.liucho.backend.Model.EstadoRedes;
 import com.liucho.backend.Model.Joya;
 import com.liucho.backend.Repository.JoyaRepository;
 import com.liucho.backend.Service.ExcelExportService;
+import com.liucho.backend.Service.PublicacionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
@@ -22,6 +23,9 @@ public class JoyaController {
 
     @Autowired
     private JoyaRepository joyaRepository;
+
+    @Autowired
+    private PublicacionService publicacionService;
 
     @Autowired
     private ExcelExportService excelExportService;
@@ -60,5 +64,12 @@ public class JoyaController {
                 .headers(headers)
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(new InputStreamResource(in));
+    }
+
+    @PostMapping
+    public Joya guardarJoya(@RequestBody Joya joya){
+        Joya guardada = joyaRepository.save(joya);
+        publicacionService.recalcularEstadoJoya(guardada.getId());
+        return joyaRepository.findById(guardada.getId()).orElse(guardada);
     }
 }

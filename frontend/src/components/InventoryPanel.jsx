@@ -32,7 +32,6 @@ const InventoryPanel = () => {
 
     const cargarInventario = async () => {
         try {
-            // Usa tu URL de Vercel/Render si estás en prod, o localhost si estás probando localmente
             const response = await fetch('https://joyas-byluxo1.onrender.com/api/joyas');
             if (response.ok) {
                 const data = await response.json();
@@ -96,7 +95,6 @@ const InventoryPanel = () => {
         }
     };
 
-    // EL BOTÓN MÁGICO DE DESCARGA
     const descargarExcel = async () => {
         try {
             const res = await fetch('https://joyas-byluxo1.onrender.com/api/joyas/exportar/excel');
@@ -155,7 +153,6 @@ const InventoryPanel = () => {
         });
     };
 
-    // Lógica de Filtros Múltiples
     const filteredInventory = inventory.filter(joya => {
         const matchesSearch = joya.nombre.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategoria = filtroCategoria === '' || joya.categoria === filtroCategoria;
@@ -177,7 +174,6 @@ const InventoryPanel = () => {
     return (
         <div className="max-w-7xl mx-auto p-6 bg-zinc-950 text-gray-200 rounded-xl shadow-2xl border border-zinc-800 font-sans mt-6 relative">
 
-            {/* Header y Botones Maestros */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-6 border-b border-zinc-800 gap-4">
                 <div className="flex items-center gap-4">
                     <img src={logoByLuxo} alt="Joyas byLuxo" className="w-16 h-16 object-cover rounded-full border border-zinc-700 shadow-md" />
@@ -196,7 +192,6 @@ const InventoryPanel = () => {
                 </div>
             </div>
 
-            {/* Panel de Filtros */}
             <div className="mb-6 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div className="flex flex-col md:col-span-2">
                     <label className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 pl-1 font-bold">🔍 Buscar Joya</label>
@@ -219,12 +214,12 @@ const InventoryPanel = () => {
                     <select value={filtroIgEstado} onChange={(e) => setFiltroIgEstado(e.target.value)} className="w-full p-2.5 bg-zinc-800/80 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:border-zinc-400">
                         <option value="">Todos</option>
                         <option value="Activo">Activo</option>
+                        <option value="Falta actualizar">Falta actualizar</option> {/* AÑADIDO AQUÍ */}
                         <option value="Archivado">Archivado</option>
                         <option value="No subido">No subido</option>
                     </select>
                 </div>
 
-                {/* Checkboxes de Filtro Rápido */}
                 <div className="md:col-span-4 flex flex-wrap gap-6 pt-2 border-t border-zinc-800/50">
                     <label className="flex items-center gap-2 cursor-pointer text-sm text-zinc-300 hover:text-white transition-colors">
                         <input type="checkbox" checked={soloOfertas} onChange={(e) => setSoloOfertas(e.target.checked)} className="w-4 h-4 accent-white bg-zinc-800 border-zinc-700 rounded cursor-pointer" />
@@ -237,7 +232,6 @@ const InventoryPanel = () => {
                 </div>
             </div>
 
-            {/* Tabla Principal */}
             <div className="overflow-x-auto rounded-lg border border-zinc-800">
                 <table className="w-full text-left border-collapse min-w-max">
                     <thead>
@@ -316,7 +310,6 @@ const InventoryPanel = () => {
                 )}
             </div>
 
-            {/* MODAL DE EDICIÓN / CREACIÓN */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm p-4">
                     <div className="bg-zinc-950 border border-zinc-800 p-6 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -328,7 +321,6 @@ const InventoryPanel = () => {
                             <button onClick={cerrarModal} className="text-zinc-500 hover:text-white text-xl">&times;</button>
                         </div>
 
-                        {/* Pestañas del Modal */}
                         <div className="flex gap-2 mb-6 border-b border-zinc-800 pb-2">
                             <button
                                 onClick={(e) => { e.preventDefault(); setActiveTab('fisica'); }}
@@ -346,7 +338,6 @@ const InventoryPanel = () => {
 
                         <form onSubmit={handleGuardar} className="flex flex-col gap-5">
 
-                            {/* TAB: INFO FÍSICA Y COMERCIAL */}
                             {activeTab === 'fisica' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="flex flex-col md:col-span-2">
@@ -399,16 +390,14 @@ const InventoryPanel = () => {
                                 </div>
                             )}
 
-                            {/* TAB: ECOSISTEMA RRSS */}
                             {activeTab === 'redes' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* IG */}
                                     <div className="bg-zinc-900/50 p-4 rounded border border-zinc-800 flex flex-col gap-3">
                                         <h4 className="text-sm font-bold text-zinc-300 border-b border-zinc-700 pb-1">Instagram</h4>
                                         <div>
                                             <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Estado</label>
                                             <select name="estadoRedes.igEstado" value={formData.estadoRedes.igEstado} onChange={handleFormChange} className="w-full p-2 bg-zinc-800 border border-zinc-700 rounded text-white text-xs">
-                                                <option value="Activo">Activo</option><option value="Archivado">Archivado</option><option value="No subido">No subido</option>
+                                                <option value="Activo">Activo</option><option value="Falta actualizar">Falta actualizar</option><option value="Archivado">Archivado</option><option value="No subido">No subido</option>
                                             </select>
                                         </div>
                                         <div>
@@ -421,13 +410,12 @@ const InventoryPanel = () => {
                                         </div>
                                     </div>
 
-                                    {/* TikTok */}
                                     <div className="bg-zinc-900/50 p-4 rounded border border-zinc-800 flex flex-col gap-3">
                                         <h4 className="text-sm font-bold text-zinc-300 border-b border-zinc-700 pb-1">TikTok</h4>
                                         <div>
                                             <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Estado</label>
                                             <select name="estadoRedes.tkEstado" value={formData.estadoRedes.tkEstado} onChange={handleFormChange} className="w-full p-2 bg-zinc-800 border border-zinc-700 rounded text-white text-xs">
-                                                <option value="Activo">Activo</option><option value="Archivado">Archivado</option><option value="No subido">No subido</option>
+                                                <option value="Activo">Activo</option><option value="Falta actualizar">Falta actualizar</option><option value="Archivado">Archivado</option><option value="No subido">No subido</option>
                                             </select>
                                         </div>
                                         <div>
@@ -440,13 +428,12 @@ const InventoryPanel = () => {
                                         </div>
                                     </div>
 
-                                    {/* Marketplace */}
                                     <div className="bg-zinc-900/50 p-4 rounded border border-zinc-800 flex flex-col gap-3">
                                         <h4 className="text-sm font-bold text-zinc-300 border-b border-zinc-700 pb-1">Marketplace</h4>
                                         <div>
                                             <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Estado</label>
                                             <select name="estadoRedes.mkpEstado" value={formData.estadoRedes.mkpEstado} onChange={handleFormChange} className="w-full p-2 bg-zinc-800 border border-zinc-700 rounded text-white text-xs">
-                                                <option value="Activo">Activo</option><option value="Archivado">Archivado</option><option value="No subido">No subido</option>
+                                                <option value="Activo">Activo</option><option value="Falta actualizar">Falta actualizar</option><option value="Archivado">Archivado</option><option value="No subido">No subido</option>
                                             </select>
                                         </div>
                                         <div>
@@ -459,13 +446,12 @@ const InventoryPanel = () => {
                                         </div>
                                     </div>
 
-                                    {/* WhatsApp */}
                                     <div className="bg-zinc-900/50 p-4 rounded border border-zinc-800 flex flex-col gap-3">
                                         <h4 className="text-sm font-bold text-zinc-300 border-b border-zinc-700 pb-1">WhatsApp Business</h4>
                                         <div>
                                             <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Catálogo Fijo</label>
                                             <select name="estadoRedes.wspCatalogo" value={formData.estadoRedes.wspCatalogo} onChange={handleFormChange} className="w-full p-2 bg-zinc-800 border border-zinc-700 rounded text-white text-xs">
-                                                <option value="Activo">Activo</option><option value="Archivado">Archivado</option><option value="No subido">No subido</option>
+                                                <option value="Activo">Activo</option><option value="Falta actualizar">Falta actualizar</option><option value="Archivado">Archivado</option><option value="No subido">No subido</option>
                                             </select>
                                         </div>
                                         <div>
@@ -476,7 +462,6 @@ const InventoryPanel = () => {
                                 </div>
                             )}
 
-                            {/* Botones de acción */}
                             <div className="flex gap-4 mt-4 pt-4 border-t border-zinc-800">
                                 <button type="button" onClick={cerrarModal} className="flex-1 bg-transparent border border-zinc-700 text-zinc-300 hover:bg-zinc-800 font-bold py-3 rounded transition-colors text-sm">
                                     CANCELAR
