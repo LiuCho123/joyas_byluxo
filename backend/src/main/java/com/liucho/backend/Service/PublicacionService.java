@@ -4,6 +4,7 @@ import com.liucho.backend.Model.EstadoRedes;
 import com.liucho.backend.Model.Joya;
 import com.liucho.backend.Model.Publicacion;
 import com.liucho.backend.Model.PublicacionJoya;
+import com.liucho.backend.Repository.EstadoRedesRepository;
 import com.liucho.backend.Repository.JoyaRepository;
 import com.liucho.backend.Repository.PublicacionJoyaRepository;
 import com.liucho.backend.Repository.PublicacionRepository;
@@ -22,7 +23,59 @@ public class PublicacionService {
     @Autowired private PublicacionRepository publicacionRepository;
     @Autowired private JoyaRepository joyaRepository;
     @Autowired private PublicacionJoyaRepository publicacionJoyaRepository;
-    @Autowired private RecalculoService recalculoService;
+    @Autowired private EstadoRedesRepository estadoRedesRepository; // Inyectado para forzar el guardado
+
+    // --- MOTOR MAESTRO DE RECÁLCULO BLINDADO ---
+    @Transactional
+    public void recalcularEstadoJoya(Long joyaId) {
+        Joya joya = joyaRepository.findById(joyaId).orElse(null);
+        if (joya == null) return;
+
+        // Limpia basura en memoria antes de leer
+        publicacionJoyaRepository.flush();
+
+        // Leemos EXACTAMENTE en qué videos está AHORA MISMO
+        List<PublicacionJoya> relaciones = publicacionJoyaRepository.findByJoyaId(joya.getId());
+
+        boolean enIg = false, enTk = false, enMkp = false, enWsp = false;
+        boolean igDesc = false, tkDesc = false, mkpDesc = false, wspDesc = false;
+
+        for (PublicacionJoya r : relaciones) {
+            Publicacion p = r.getPublicacion();
+            if (p == null) continue;
+
+            String plat = p.getPlataforma() != null ? p.getPlataforma() : "";
+            boolean descuadrado = !r.getStockAlSubir().equals(joya.getStock());
+
+            if (plat.equalsIgnoreCase("Instagram")) { enIg = true; if(descuadrado) igDesc = true; }
+            if (plat.equalsIgnoreCase("TikTok")) { enTk = true; if(descuadrado) tkDesc = true; }
+            if (plat.equalsIgnoreCase("Marketplace")) { enMkp = true; if(descuadrado) mkpDesc = true; }
+            if (plat.equalsIgnoreCase("WhatsApp") && "Catálogo".equalsIgnoreCase(p.getFormato())) {
+                enWsp = true; if(descuadrado) wspDesc = true;
+            }
+        }
+
+        EstadoRedes redes = joya.getEstadoRedes();
+        if (redes == null) {
+            redes = new EstadoRedes();
+            redes.setJoya(joya);
+            joya.setEstadoRedes(redes);
+        }
+
+        if (joya.getStock() == null || joya.getStock() == 0) {
+            redes.setIgEstado("Archivado"); redes.setTkEstado("Archivado");
+            redes.setMkpEstado("Archivado"); redes.setWspCatalogo("Archivado");
+        } else {
+            redes.setIgEstado(enIg ? (igDesc ? "Falta actualizar" : "Activo") : "No subido");
+            redes.setTkEstado(enTk ? (tkDesc ? "Falta actualizar" : "Activo") : "No subido");
+            redes.setMkpEstado(enMkp ? (mkpDesc ? "Falta actualizar" : "Activo") : "No subido");
+            redes.setWspCatalogo(enWsp ? (wspDesc ? "Falta actualizar" : "Activo") : "No subido");
+        }
+
+        // ¡GOLPE DE MARTILLO! Guardamos explícitamente en la BD.
+        estadoRedesRepository.save(redes);
+        joyaRepository.save(joya);
+    }
 
     @Transactional
     public Publicacion registrarPublicacion(Publicacion publicacion) {
@@ -46,7 +99,7 @@ public class PublicacionService {
         publicacionRepository.saveAndFlush(nuevaPub);
 
         if (nuevaPub.getRelaciones() != null) {
-            for(PublicacionJoya pj : nuevaPub.getRelaciones()) recalculoService.recalcularEstadoJoya(pj.getJoya().getId());
+            for(PublicacionJoya pj : nuevaPub.getRelaciones()) recalcularEstadoJoya(pj.getJoya().getId());
         }
         return nuevaPub;
     }
@@ -66,9 +119,12 @@ public class PublicacionService {
         pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
         pub.setCantidadFotos(datosActualizados.getCantidadFotos());
 
-        // Limpiamos las relaciones viejas usando el método nativo de la lista
-        pub.getRelaciones().clear();
-        publicacionRepository.flush();
+        // Destruimos las relaciones viejas para que no causen interferencia
+        if(!pub.getRelaciones().isEmpty()) {
+            publicacionJoyaRepository.deleteAll(pub.getRelaciones());
+            publicacionJoyaRepository.flush();
+            pub.getRelaciones().clear();
+        }
 
         if(datosActualizados.getJoyas() != null) {
             for(Joya joyaRef : datosActualizados.getJoyas()) {
@@ -86,7 +142,7 @@ public class PublicacionService {
         }
 
         Publicacion pubGuardada = publicacionRepository.saveAndFlush(pub);
-        for(Long joyaId : idsParaRecalcular) recalculoService.recalcularEstadoJoya(joyaId);
+        for(Long joyaId : idsParaRecalcular) recalcularEstadoJoya(joyaId);
 
         return pubGuardada;
     }
@@ -98,14 +154,16 @@ public class PublicacionService {
             Set<Long> idsAfectados = new HashSet<>();
             if(pub.getRelaciones() != null) {
                 pub.getRelaciones().forEach(r -> idsAfectados.add(r.getJoya().getId()));
+
+                // DESTRUCCIÓN FÍSICA INMEDIATA
+                publicacionJoyaRepository.deleteAll(pub.getRelaciones());
+                publicacionJoyaRepository.flush();
             }
 
-            // Eliminamos la publicación de una, el CascadeType.ALL en Publicacion se encarga de las relaciones
             publicacionRepository.delete(pub);
             publicacionRepository.flush();
 
-            // Recalculamos las joyas que quedaron huérfanas
-            for(Long jId : idsAfectados) recalculoService.recalcularEstadoJoya(jId);
+            for(Long jId : idsAfectados) recalcularEstadoJoya(jId);
         }
     }
 
