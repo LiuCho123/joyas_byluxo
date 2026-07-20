@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 public class TransaccionService {
@@ -20,9 +22,13 @@ public class TransaccionService {
     @Autowired
     private JoyaRepository joyaRepository;
 
+    @Autowired
+    private RecalculoService recalculoService;
+
     @Transactional
     public Transaccion registrarVenta(Transaccion venta){
         int sumaPreciosOriginales = 0;
+        Set<Long> joyasModificadas = new HashSet<>(); // Para recalcular al final
 
         if (venta.getItems() != null && !venta.getItems().isEmpty()) {
             for (ItemVenta item : venta.getItems()) {
@@ -36,6 +42,8 @@ public class TransaccionService {
                 joyaReal.setStock(joyaReal.getStock() - item.getCantidad());
                 joyaRepository.save(joyaReal);
 
+                joyasModificadas.add(joyaReal.getId());
+
                 item.setSubtotal(joyaReal.getPrecio() * item.getCantidad());
                 item.setTransaccion(venta);
 
@@ -43,24 +51,26 @@ public class TransaccionService {
             }
         }
 
-        // Respetamos la fecha manual del frontend. Si viene vacía, usa la de hoy.
         if (venta.getFecha() == null) {
             venta.setFecha(LocalDate.now());
         }
 
-        // Flexibilidad de precio: Si el frontend manda un monto, lo respeta (descuento).
-        // Si manda 0, cobra la suma original de las joyas.
         int ingresoFinal = (venta.getEntra() > 0) ? venta.getEntra() : sumaPreciosOriginales;
 
         venta.setTipo("Ingreso");
         venta.setCategoria("Venta de Joya");
         venta.setEntra(ingresoFinal);
         venta.setSale(0);
-
-        // La comisión del 10% se calcula sobre el ingreso final cobrado
         venta.setComision((int) (ingresoFinal * 0.10));
 
-        return transaccionRepository.save(venta);
+        Transaccion tGuardada = transaccionRepository.save(venta);
+
+        // ¡Magia Pura! Tras vender, avisamos al recálculo para que tire las alertas amarillas.
+        for(Long jId : joyasModificadas) {
+            recalculoService.recalcularEstadoJoya(jId);
+        }
+
+        return tGuardada;
     }
 
     public Transaccion registrarMovimientoSimple(Transaccion movimiento){
