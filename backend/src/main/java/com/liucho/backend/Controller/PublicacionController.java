@@ -45,7 +45,7 @@ public class PublicacionController {
 
                 Set<Long> idsAfectados = new HashSet<>();
                 if(pub.getRelaciones() != null) {
-                    pub.getRelaciones().forEach(r -> idsAfectadas.add(r.getJoya().getId()));
+                    pub.getRelaciones().forEach(r -> idsAfectados.add(r.getJoya().getId()));
                 }
 
                 publicacionRepository.delete(pub);
