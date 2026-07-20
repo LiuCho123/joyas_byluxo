@@ -18,7 +18,9 @@ public class TransaccionService {
 
     @Autowired private TransaccionRepository transaccionRepository;
     @Autowired private JoyaRepository joyaRepository;
-    @Autowired private PublicacionService publicacionService; // Conectado al Recálculo
+
+    // AQUÍ ESTABA EL ERROR: Ahora inyectamos el servicio correcto
+    @Autowired private RecalculoService recalculoService;
 
     @Transactional
     public Transaccion registrarVenta(Transaccion venta){
@@ -57,9 +59,9 @@ public class TransaccionService {
 
         Transaccion tGuardada = transaccionRepository.save(venta);
 
-        // ¡Magia Pura! Tras vender, avisamos al recálculo para que tire las alertas amarillas.
+        // Ahora llama al motor desde el lugar correcto
         for(Long jId : joyasModificadas) {
-            publicacionService.recalcularEstadoJoya(jId);
+            recalculoService.recalcularEstadoJoya(jId);
         }
 
         return tGuardada;
