@@ -16,19 +16,14 @@ import java.util.Set;
 @Service
 public class TransaccionService {
 
-    @Autowired
-    private TransaccionRepository transaccionRepository;
-
-    @Autowired
-    private JoyaRepository joyaRepository;
-
-    @Autowired
-    private RecalculoService recalculoService;
+    @Autowired private TransaccionRepository transaccionRepository;
+    @Autowired private JoyaRepository joyaRepository;
+    @Autowired private PublicacionService publicacionService; // Conectado al Recálculo
 
     @Transactional
     public Transaccion registrarVenta(Transaccion venta){
         int sumaPreciosOriginales = 0;
-        Set<Long> joyasModificadas = new HashSet<>(); // Para recalcular al final
+        Set<Long> joyasModificadas = new HashSet<>();
 
         if (venta.getItems() != null && !venta.getItems().isEmpty()) {
             for (ItemVenta item : venta.getItems()) {
@@ -46,14 +41,11 @@ public class TransaccionService {
 
                 item.setSubtotal(joyaReal.getPrecio() * item.getCantidad());
                 item.setTransaccion(venta);
-
                 sumaPreciosOriginales += item.getSubtotal();
             }
         }
 
-        if (venta.getFecha() == null) {
-            venta.setFecha(LocalDate.now());
-        }
+        if (venta.getFecha() == null) venta.setFecha(LocalDate.now());
 
         int ingresoFinal = (venta.getEntra() > 0) ? venta.getEntra() : sumaPreciosOriginales;
 
@@ -67,16 +59,14 @@ public class TransaccionService {
 
         // ¡Magia Pura! Tras vender, avisamos al recálculo para que tire las alertas amarillas.
         for(Long jId : joyasModificadas) {
-            recalculoService.recalcularEstadoJoya(jId);
+            publicacionService.recalcularEstadoJoya(jId);
         }
 
         return tGuardada;
     }
 
     public Transaccion registrarMovimientoSimple(Transaccion movimiento){
-        if (movimiento.getFecha() == null) {
-            movimiento.setFecha(LocalDate.now());
-        }
+        if (movimiento.getFecha() == null) movimiento.setFecha(LocalDate.now());
         movimiento.setComision(0);
         return transaccionRepository.save(movimiento);
     }
