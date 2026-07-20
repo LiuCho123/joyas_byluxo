@@ -22,49 +22,7 @@ public class PublicacionService {
     @Autowired private PublicacionRepository publicacionRepository;
     @Autowired private JoyaRepository joyaRepository;
     @Autowired private PublicacionJoyaRepository publicacionJoyaRepository;
-
-    // MOTOR MAESTRO DE RECÁLCULO BLINDADO
-    @Transactional
-    public void recalcularEstadoJoya(Long joyaId) {
-        Joya joya = joyaRepository.findById(joyaId).orElse(null);
-        if (joya == null) return;
-
-        List<Publicacion> todas = publicacionRepository.findAll();
-        boolean enIg = false, enTk = false, enMkp = false, enWsp = false;
-        boolean igDesc = false, tkDesc = false, mkpDesc = false, wspDesc = false;
-
-        for (Publicacion p : todas) {
-            if (p.getRelaciones() != null) {
-                for (PublicacionJoya r : p.getRelaciones()) {
-                    if (r.getJoya().getId().equals(joya.getId())) {
-                        String plat = p.getPlataforma() != null ? p.getPlataforma() : "";
-                        boolean descuadrado = !r.getStockAlSubir().equals(joya.getStock());
-
-                        if (plat.equalsIgnoreCase("Instagram")) { enIg = true; if(descuadrado) igDesc = true; }
-                        if (plat.equalsIgnoreCase("TikTok")) { enTk = true; if(descuadrado) tkDesc = true; }
-                        if (plat.equalsIgnoreCase("Marketplace")) { enMkp = true; if(descuadrado) mkpDesc = true; }
-                        if (plat.equalsIgnoreCase("WhatsApp") && "Catálogo".equalsIgnoreCase(p.getFormato())) {
-                            enWsp = true; if(descuadrado) wspDesc = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        EstadoRedes redes = joya.getEstadoRedes();
-        if (redes == null) { redes = new EstadoRedes(); joya.setEstadoRedes(redes); }
-
-        if (joya.getStock() == null || joya.getStock() == 0) {
-            redes.setIgEstado("Archivado"); redes.setTkEstado("Archivado");
-            redes.setMkpEstado("Archivado"); redes.setWspCatalogo("Archivado");
-        } else {
-            redes.setIgEstado(enIg ? (igDesc ? "Falta actualizar" : "Activo") : "No subido");
-            redes.setTkEstado(enTk ? (tkDesc ? "Falta actualizar" : "Activo") : "No subido");
-            redes.setMkpEstado(enMkp ? (mkpDesc ? "Falta actualizar" : "Activo") : "No subido");
-            redes.setWspCatalogo(enWsp ? (wspDesc ? "Falta actualizar" : "Activo") : "No subido");
-        }
-        joyaRepository.save(joya);
-    }
+    @Autowired private RecalculoService recalculoService;
 
     @Transactional
     public Publicacion registrarPublicacion(Publicacion publicacion) {
@@ -88,7 +46,7 @@ public class PublicacionService {
         publicacionRepository.saveAndFlush(nuevaPub);
 
         if (nuevaPub.getRelaciones() != null) {
-            for(PublicacionJoya pj : nuevaPub.getRelaciones()) recalcularEstadoJoya(pj.getJoya().getId());
+            for(PublicacionJoya pj : nuevaPub.getRelaciones()) recalculoService.recalcularEstadoJoya(pj.getJoya().getId());
         }
         return nuevaPub;
     }
@@ -108,11 +66,9 @@ public class PublicacionService {
         pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
         pub.setCantidadFotos(datosActualizados.getCantidadFotos());
 
-        // ELIMINA LA CACHÉ FANTASMA DE LA BD
-        if(!pub.getRelaciones().isEmpty()) {
-            publicacionJoyaRepository.deleteAllInBatch(pub.getRelaciones());
-            pub.getRelaciones().clear();
-        }
+        // Limpiamos las relaciones viejas usando el método nativo de la lista
+        pub.getRelaciones().clear();
+        publicacionRepository.flush();
 
         if(datosActualizados.getJoyas() != null) {
             for(Joya joyaRef : datosActualizados.getJoyas()) {
@@ -130,7 +86,7 @@ public class PublicacionService {
         }
 
         Publicacion pubGuardada = publicacionRepository.saveAndFlush(pub);
-        for(Long joyaId : idsParaRecalcular) recalcularEstadoJoya(joyaId);
+        for(Long joyaId : idsParaRecalcular) recalculoService.recalcularEstadoJoya(joyaId);
 
         return pubGuardada;
     }
@@ -144,14 +100,12 @@ public class PublicacionService {
                 pub.getRelaciones().forEach(r -> idsAfectados.add(r.getJoya().getId()));
             }
 
-            // Borra relaciones primero para evitar bloqueos
-            if(!pub.getRelaciones().isEmpty()) {
-                publicacionJoyaRepository.deleteAllInBatch(pub.getRelaciones());
-            }
+            // Eliminamos la publicación de una, el CascadeType.ALL en Publicacion se encarga de las relaciones
             publicacionRepository.delete(pub);
             publicacionRepository.flush();
 
-            for(Long jId : idsAfectados) recalcularEstadoJoya(jId);
+            // Recalculamos las joyas que quedaron huérfanas
+            for(Long jId : idsAfectados) recalculoService.recalcularEstadoJoya(jId);
         }
     }
 

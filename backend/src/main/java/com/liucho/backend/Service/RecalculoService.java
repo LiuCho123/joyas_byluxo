@@ -4,6 +4,7 @@ import com.liucho.backend.Model.EstadoRedes;
 import com.liucho.backend.Model.Joya;
 import com.liucho.backend.Model.Publicacion;
 import com.liucho.backend.Model.PublicacionJoya;
+import com.liucho.backend.Repository.EstadoRedesRepository;
 import com.liucho.backend.Repository.JoyaRepository;
 import com.liucho.backend.Repository.PublicacionJoyaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,9 @@ public class RecalculoService {
     @Autowired
     private PublicacionJoyaRepository publicacionJoyaRepository;
 
-    // REQUIRES_NEW obliga a aislar esta operación para evitar lecturas "fantasma"
+    @Autowired
+    private EstadoRedesRepository estadoRedesRepository; // ¡CLAVE PARA GUARDAR!
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recalcularEstadoJoya(Long joyaId) {
         Joya joya = joyaRepository.findById(joyaId).orElse(null);
@@ -49,6 +52,7 @@ public class RecalculoService {
         EstadoRedes redes = joya.getEstadoRedes();
         if (redes == null) {
             redes = new EstadoRedes();
+            redes.setJoya(joya);
             joya.setEstadoRedes(redes);
         }
 
@@ -64,6 +68,7 @@ public class RecalculoService {
             redes.setWspCatalogo(enWsp ? (wspDesc ? "Falta actualizar" : "Activo") : "No subido");
         }
 
+        estadoRedesRepository.save(redes);
         joyaRepository.save(joya);
     }
 }
