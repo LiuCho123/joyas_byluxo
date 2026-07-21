@@ -41,4 +41,9 @@ public class PublicacionController {
     public void eliminarPublicacion(@PathVariable Long id){
         publicacionService.eliminarPublicacion(id);
     }
+
+    @PutMapping("/{id}/mensaje-mkp")
+    public Publicacion registrarMensajeMarketplace(@PathVariable Long id){
+        return publicacionService.registrarMensajeMarketplace(id);
+    }
 }

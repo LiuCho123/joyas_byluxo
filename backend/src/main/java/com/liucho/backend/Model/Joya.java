@@ -17,11 +17,11 @@ public class Joya {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-
     private String nombre;
-
     private String categoria;
+
     private LocalDate fechaAdquisicion;
+    private LocalDate fechaLimiteOferta; // NUEVO: Fecha final de la promoción
 
     private Integer precio;
     private Integer precioOferta;

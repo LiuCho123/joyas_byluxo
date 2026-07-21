@@ -23,6 +23,10 @@ public class Publicacion {
     private String estado;
     private Integer cantidadFotos;
 
+    // NUEVOS: Combos y Marketplace
+    private Integer precioCombo;
+    private Integer mensajesMarketplace = 0;
+
     private Integer reproducciones = 0;
     private Integer likes = 0;
     private Integer comentarios = 0;

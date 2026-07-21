@@ -58,8 +58,15 @@ const InventoryPanel = () => {
     const handleGuardar = async (e) => {
         e.preventDefault();
         try {
-            const response = await fetch('https://joyas-byluxo1.onrender.com/api/joyas', {
-                method: 'POST',
+            // MAGIA AQUÍ: Detectamos si es crear nueva (POST) o editar existente (PUT)
+            const isEditing = !!formData.id;
+            const url = isEditing
+                ? `https://joyas-byluxo1.onrender.com/api/joyas/${formData.id}`
+                : 'https://joyas-byluxo1.onrender.com/api/joyas';
+            const method = isEditing ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...formData,

@@ -25,7 +25,6 @@ public class PublicacionService {
     @Autowired private PublicacionJoyaRepository publicacionJoyaRepository;
     @Autowired private EstadoRedesRepository estadoRedesRepository;
 
-    // --- MOTOR MAESTRO BLINDADO ANTI-CRASH ---
     @Transactional
     public void recalcularEstadoJoya(Long joyaId) {
         try {
@@ -38,7 +37,6 @@ public class PublicacionService {
             boolean enIg = false, enTk = false, enMkp = false, enWsp = false;
             boolean igDesc = false, tkDesc = false, mkpDesc = false, wspDesc = false;
 
-            // Protección contra nulos
             int stockActual = joya.getStock() != null ? joya.getStock() : 0;
 
             for (PublicacionJoya r : relaciones) {
@@ -123,6 +121,7 @@ public class PublicacionService {
         pub.setFormato(datosActualizados.getFormato());
         pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
         pub.setCantidadFotos(datosActualizados.getCantidadFotos());
+        pub.setPrecioCombo(datosActualizados.getPrecioCombo()); // NUEVO: Atrapa el precio del combo
 
         if(!pub.getRelaciones().isEmpty()) {
             publicacionJoyaRepository.deleteAll(pub.getRelaciones());
@@ -191,5 +190,26 @@ public class PublicacionService {
         pubReal.setGuardados(statsNuevas.getGuardados());
         pubReal.setCompartidos(statsNuevas.getCompartidos());
         return publicacionRepository.save(pubReal);
+    }
+
+    @Transactional
+    public Publicacion registrarMensajeMarketplace(Long id) {
+        Publicacion pub = publicacionRepository.findById(id).orElseThrow(() -> new RuntimeException("No encontrada"));
+
+        int msjsActuales = pub.getMensajesMarketplace() != null ? pub.getMensajesMarketplace() : 0;
+        pub.setMensajesMarketplace(msjsActuales + 1);
+
+        String fechaHoy = LocalDate.now().toString();
+
+        if (pub.getRelaciones() != null) {
+            for (PublicacionJoya pj : pub.getRelaciones()) {
+                Joya j = pj.getJoya();
+                if (j != null && j.getEstadoRedes() != null) {
+                    j.getEstadoRedes().setMkpConversacion(fechaHoy);
+                    estadoRedesRepository.save(j.getEstadoRedes());
+                }
+            }
+        }
+        return publicacionRepository.save(pub);
     }
 }

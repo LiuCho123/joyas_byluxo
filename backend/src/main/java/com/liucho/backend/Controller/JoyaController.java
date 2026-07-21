@@ -21,21 +21,15 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class JoyaController {
 
-    @Autowired
-    private JoyaRepository joyaRepository;
-
-    @Autowired
-    private PublicacionService publicacionService;
-
-    @Autowired
-    private ExcelExportService excelExportService;
+    @Autowired private JoyaRepository joyaRepository;
+    @Autowired private PublicacionService publicacionService;
+    @Autowired private ExcelExportService excelExportService;
 
     @GetMapping
     public List<Joya> obtenerTodas(){
         return joyaRepository.findAll();
     }
 
-    // --- SE UNIFICARON LOS DOS POSTMAPPING EN UNO SOLO ---
     @PostMapping
     public Joya guardarJoya(@RequestBody Joya joya){
         if (joya.getEstadoRedes() != null){
@@ -47,19 +41,17 @@ public class JoyaController {
         }
         Joya guardada = joyaRepository.save(joya);
 
-        // Avisamos al motor
         publicacionService.recalcularEstadoJoya(guardada.getId());
-
         return joyaRepository.findById(guardada.getId()).orElse(guardada);
     }
 
-    // --- AÑADIMOS EL PUT PARA LA EDICIÓN DESDE EL INVENTARIO ---
     @PutMapping("/{id}")
     public Joya editarJoya(@PathVariable Long id, @RequestBody Joya datosActualizados) {
         return joyaRepository.findById(id).map(joya -> {
             joya.setNombre(datosActualizados.getNombre());
             joya.setCategoria(datosActualizados.getCategoria());
             joya.setFechaAdquisicion(datosActualizados.getFechaAdquisicion());
+            joya.setFechaLimiteOferta(datosActualizados.getFechaLimiteOferta()); // NUEVO
             joya.setPrecio(datosActualizados.getPrecio());
             joya.setPrecioOferta(datosActualizados.getPrecioOferta());
             joya.setStock(datosActualizados.getStock());
@@ -67,7 +59,6 @@ public class JoyaController {
             joya.setPeso(datosActualizados.getPeso());
             joya.setFotoUrl(datosActualizados.getFotoUrl());
 
-            // Si el frontend envía redes actualizadas en la edición
             if (datosActualizados.getEstadoRedes() != null) {
                 EstadoRedes redesNuevas = datosActualizados.getEstadoRedes();
                 EstadoRedes redesViejas = joya.getEstadoRedes();
@@ -94,10 +85,7 @@ public class JoyaController {
             }
 
             Joya editada = joyaRepository.save(joya);
-
-            // Avisamos al motor
             publicacionService.recalcularEstadoJoya(editada.getId());
-
             return editada;
         }).orElseThrow(() -> new RuntimeException("Joya no encontrada"));
     }
@@ -110,13 +98,9 @@ public class JoyaController {
     @GetMapping("/exportar/excel")
     public ResponseEntity<InputStreamResource> exportarExcel() throws IOException {
         ByteArrayInputStream in = excelExportService.exportarExcelCompleto();
-
         HttpHeaders headers = new HttpHeaders();
         headers.add("Content-Disposition", "attachment; filename=Joyas_ByLuxo.xlsx");
-
-        return ResponseEntity
-                .ok()
-                .headers(headers)
+        return ResponseEntity.ok().headers(headers)
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(new InputStreamResource(in));
     }
