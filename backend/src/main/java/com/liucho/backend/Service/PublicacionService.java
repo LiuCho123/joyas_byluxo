@@ -37,6 +37,12 @@ public class PublicacionService {
             boolean enIg = false, enTk = false, enMkp = false, enWsp = false;
             boolean igDesc = false, tkDesc = false, mkpDesc = false, wspDesc = false;
 
+            // --- NUEVO: Capturar fechas y formatos ---
+            String ultFechaIg = "", ultFormatoIg = "";
+            String ultFechaTk = "", ultFormatoTk = "";
+            String ultFechaMkp = "";
+            String ultFechaWsp = "";
+
             int stockActual = joya.getStock() != null ? joya.getStock() : 0;
 
             for (PublicacionJoya r : relaciones) {
@@ -44,14 +50,29 @@ public class PublicacionService {
                 if (p == null) continue;
 
                 String plat = p.getPlataforma() != null ? p.getPlataforma() : "";
+                String form = p.getFormato() != null ? p.getFormato() : "";
+                String fechaPub = p.getFechaPublicacion() != null ? p.getFechaPublicacion().toString() : "";
                 int stockGrabado = r.getStockAlSubir() != null ? r.getStockAlSubir() : 0;
                 boolean descuadrado = stockGrabado != stockActual;
 
-                if (plat.equalsIgnoreCase("Instagram")) { enIg = true; if(descuadrado) igDesc = true; }
-                if (plat.equalsIgnoreCase("TikTok")) { enTk = true; if(descuadrado) tkDesc = true; }
-                if (plat.equalsIgnoreCase("Marketplace")) { enMkp = true; if(descuadrado) mkpDesc = true; }
-                if (plat.equalsIgnoreCase("WhatsApp") && "Catálogo".equalsIgnoreCase(p.getFormato())) {
-                    enWsp = true; if(descuadrado) wspDesc = true;
+                if (plat.equalsIgnoreCase("Instagram")) {
+                    enIg = true; if(descuadrado) igDesc = true;
+                    ultFechaIg = fechaPub; ultFormatoIg = form;
+                }
+                if (plat.equalsIgnoreCase("TikTok")) {
+                    enTk = true; if(descuadrado) tkDesc = true;
+                    ultFechaTk = fechaPub; ultFormatoTk = form;
+                }
+                if (plat.equalsIgnoreCase("Marketplace")) {
+                    enMkp = true; if(descuadrado) mkpDesc = true;
+                    ultFechaMkp = fechaPub;
+                }
+                if (plat.equalsIgnoreCase("WhatsApp")) {
+                    if ("Catálogo".equalsIgnoreCase(form)) {
+                        enWsp = true; if(descuadrado) wspDesc = true;
+                    } else {
+                        ultFechaWsp = fechaPub;
+                    }
                 }
             }
 
@@ -61,6 +82,12 @@ public class PublicacionService {
                 redes.setJoya(joya);
                 joya.setEstadoRedes(redes);
             }
+
+            // Inyectar fechas capturadas
+            if (enIg) { redes.setIgUltimaFecha(ultFechaIg); redes.setIgFormato(ultFormatoIg); }
+            if (enTk) { redes.setTkUltimaFecha(ultFechaTk); redes.setTkFormato(ultFormatoTk); }
+            if (enMkp) { redes.setMkpUltimaFecha(ultFechaMkp); }
+            if (!ultFechaWsp.isEmpty()) { redes.setWspUltimaFecha(ultFechaWsp); }
 
             if (stockActual == 0) {
                 redes.setIgEstado("Archivado"); redes.setTkEstado("Archivado");
@@ -121,7 +148,7 @@ public class PublicacionService {
         pub.setFormato(datosActualizados.getFormato());
         pub.setFechaPublicacion(datosActualizados.getFechaPublicacion());
         pub.setCantidadFotos(datosActualizados.getCantidadFotos());
-        pub.setPrecioCombo(datosActualizados.getPrecioCombo()); // NUEVO: Atrapa el precio del combo
+        pub.setPrecioCombo(datosActualizados.getPrecioCombo());
 
         if(!pub.getRelaciones().isEmpty()) {
             publicacionJoyaRepository.deleteAll(pub.getRelaciones());
@@ -181,6 +208,7 @@ public class PublicacionService {
         }
     }
 
+    // --- NUEVO: Soporte para estadísticas de Historia ---
     @Transactional
     public Publicacion actualizarMetricas(Long id, Publicacion statsNuevas){
         Publicacion pubReal = publicacionRepository.findById(id).orElseThrow(() -> new RuntimeException("No encontrada"));
@@ -189,6 +217,12 @@ public class PublicacionService {
         pubReal.setComentarios(statsNuevas.getComentarios());
         pubReal.setGuardados(statsNuevas.getGuardados());
         pubReal.setCompartidos(statsNuevas.getCompartidos());
+
+        // Stats Historia
+        pubReal.setReproduccionesHistoria(statsNuevas.getReproduccionesHistoria());
+        pubReal.setLikesHistoria(statsNuevas.getLikesHistoria());
+        pubReal.setRespuestasHistoria(statsNuevas.getRespuestasHistoria());
+
         return publicacionRepository.save(pubReal);
     }
 

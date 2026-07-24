@@ -18,8 +18,6 @@ public class TransaccionService {
 
     @Autowired private TransaccionRepository transaccionRepository;
     @Autowired private JoyaRepository joyaRepository;
-
-    // AQUÍ ESTABA EL ERROR: Ahora inyectamos el servicio correcto
     @Autowired private RecalculoService recalculoService;
 
     @Transactional
@@ -47,6 +45,7 @@ public class TransaccionService {
             }
         }
 
+        // Se apoya en la zona horaria definida en BackendApplication
         if (venta.getFecha() == null) venta.setFecha(LocalDate.now());
 
         int ingresoFinal = (venta.getEntra() > 0) ? venta.getEntra() : sumaPreciosOriginales;
@@ -59,7 +58,6 @@ public class TransaccionService {
 
         Transaccion tGuardada = transaccionRepository.save(venta);
 
-        // Ahora llama al motor desde el lugar correcto
         for(Long jId : joyasModificadas) {
             recalculoService.recalcularEstadoJoya(jId);
         }

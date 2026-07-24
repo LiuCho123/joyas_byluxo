@@ -22,8 +22,6 @@ public class Publicacion {
     private LocalDate fechaPublicacion;
     private String estado;
     private Integer cantidadFotos;
-
-    // NUEVOS: Combos y Marketplace
     private Integer precioCombo;
     private Integer mensajesMarketplace = 0;
 
@@ -33,10 +31,14 @@ public class Publicacion {
     private Integer guardados = 0;
     private Integer compartidos = 0;
 
+    private Integer reproduccionesHistoria = 0;
+    private Integer likesHistoria = 0;
+    private Integer respuestasHistoria = 0;
+
     @OneToMany(mappedBy = "publicacion", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties("publicacion")
     private List<PublicacionJoya> relaciones = new ArrayList<>();
 
     @Transient
-    private List<Joya> joyas; // Solo se usa para recibir los datos desde React
+    private List<Joya> joyas;
 }
