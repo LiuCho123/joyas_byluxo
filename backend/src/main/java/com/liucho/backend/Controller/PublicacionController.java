@@ -46,4 +46,10 @@ public class PublicacionController {
     public Publicacion registrarMensajeMarketplace(@PathVariable Long id){
         return publicacionService.registrarMensajeMarketplace(id);
     }
+
+    // --- NUEVO: RESTAR MENSAJE ---
+    @PutMapping("/{id}/restar-mensaje-mkp")
+    public Publicacion restarMensajeMarketplace(@PathVariable Long id){
+        return publicacionService.restarMensajeMarketplace(id);
+    }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, MessageCircle, Heart, Play, Plus, X, Camera, Video, Trash2, Pencil, PackageSearch, Zap, Search, Store, MessageSquare, BarChart3, Bookmark, Share2 } from 'lucide-react';
+import { RefreshCw, MessageCircle, Heart, Play, Plus, Minus, X, Camera, Video, Trash2, Pencil, PackageSearch, Zap, Search, Store, MessageSquare, BarChart3, Bookmark, Share2 } from 'lucide-react';
 import logoByLuxo from '../assets/logo.jpeg';
 
 const ContentGallery = () => {
@@ -22,7 +22,7 @@ const ContentGallery = () => {
     const getChileanDate = () => {
         const date = new Date();
         const offset = date.getTimezoneOffset() * 60000;
-        const chileanDate = new Date(date.getTime() - offset - (4 * 3600000)); // Ajuste burdo a UTC-4
+        const chileanDate = new Date(date.getTime() - offset - (4 * 3600000));
         return chileanDate.toISOString().split('T')[0];
     };
 
@@ -68,6 +68,16 @@ const ContentGallery = () => {
             if (res.ok) cargarDatos();
         } catch (error) {
             console.error("Error registrando mensaje:", error);
+        }
+    };
+
+    // --- NUEVO: RESTAR MENSAJE ---
+    const handleRestarMensajeMarketplace = async (id) => {
+        try {
+            const res = await fetch(`https://joyas-byluxo1.onrender.com/api/publicaciones/${id}/restar-mensaje-mkp`, { method: 'PUT' });
+            if (res.ok) cargarDatos();
+        } catch (error) {
+            console.error("Error restando mensaje:", error);
         }
     };
 
@@ -137,7 +147,6 @@ const ContentGallery = () => {
                 const method = editingId ? 'PUT' : 'POST';
                 await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(crearPayload(nuevoVideo.plataforma, nuevoVideo.formato)) });
             }
-
             cerrarModal();
             cargarDatos();
         } catch (error) {
@@ -145,7 +154,6 @@ const ContentGallery = () => {
         }
     };
 
-    // --- MÉTODOS PARA ESTADÍSTICAS ---
     const abrirModalStats = (pub) => {
         setActiveStatsPub(pub);
         setTempStats({
@@ -362,10 +370,14 @@ const ContentGallery = () => {
                                         </button>
                                     </div>
                                 )}
+                                {/* AQUI QUEDÓ EL BOTÓN DOBLE DE MARKETPLACE */}
                                 {pub.plataforma === 'Marketplace' && (
-                                    <div className="p-3 border-t border-blue-900/30 bg-blue-950/10">
-                                        <button onClick={() => handleMensajeMarketplace(pub.id)} className="w-full bg-blue-600/90 hover:bg-blue-500 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(37,99,235,0.2)]">
+                                    <div className="p-3 border-t border-blue-900/30 bg-blue-950/10 flex gap-2">
+                                        <button onClick={() => handleMensajeMarketplace(pub.id)} className="flex-1 bg-blue-600/90 hover:bg-blue-500 text-white text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(37,99,235,0.2)]">
                                             <MessageCircle className="w-4 h-4" /> Alguien me habló ({pub.mensajesMarketplace || 0})
+                                        </button>
+                                        <button onClick={() => handleRestarMensajeMarketplace(pub.id)} className="w-10 bg-blue-900/50 hover:bg-rose-500/80 text-blue-200 hover:text-white rounded-xl flex items-center justify-center transition-all border border-blue-700/50 hover:border-rose-500" title="Restar mensaje (Error)">
+                                            <Minus className="w-4 h-4" />
                                         </button>
                                     </div>
                                 )}
@@ -375,7 +387,7 @@ const ContentGallery = () => {
                 )}
             </div>
 
-            {/* MODAL MÁS BONITO PARA CREAR/EDITAR */}
+            {/* MODAL MÁS BONITO PARA CREAR/EDITAR (Intacto) */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-2xl shadow-2xl w-full max-w-2xl relative overflow-hidden">
@@ -465,7 +477,7 @@ const ContentGallery = () => {
                 </div>
             )}
 
-            {/* MODAL DE ESTADÍSTICAS RENOVADO Y SEPARADO */}
+            {/* MODAL DE ESTADÍSTICAS RENOVADO (Intacto) */}
             {isStatsModalOpen && activeStatsPub && (
                 <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
                     <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
@@ -480,7 +492,6 @@ const ContentGallery = () => {
                         <p className="text-sm text-zinc-400 mb-6 bg-zinc-900/50 p-3 rounded-xl border border-zinc-800/50"><span className="font-bold text-zinc-200">Publicación:</span> {activeStatsPub.titulo}</p>
 
                         <div className="space-y-6">
-                            {/* BLOQUE PRINCIPAL (Reel/Video/Carrusel) */}
                             <div className="bg-zinc-900/30 p-5 rounded-xl border border-zinc-800/50">
                                 <h4 className="text-xs font-bold tracking-widest text-zinc-300 uppercase mb-4 flex items-center gap-2"><Play className="w-4 h-4 text-indigo-400" /> Principal (Reel/Video/Post)</h4>
                                 <div className="grid grid-cols-2 gap-4">
@@ -492,7 +503,6 @@ const ContentGallery = () => {
                                 </div>
                             </div>
 
-                            {/* BLOQUE SECUNDARIO (Historias) */}
                             {activeStatsPub.formato.includes('Historia') && (
                                 <div className="bg-pink-900/10 p-5 rounded-xl border border-pink-800/30">
                                     <h4 className="text-xs font-bold tracking-widest text-pink-300 uppercase mb-4 flex items-center gap-2"><Camera className="w-4 h-4 text-pink-400" /> Rendimiento Historia</h4>

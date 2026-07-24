@@ -37,7 +37,6 @@ public class PublicacionService {
             boolean enIg = false, enTk = false, enMkp = false, enWsp = false;
             boolean igDesc = false, tkDesc = false, mkpDesc = false, wspDesc = false;
 
-            // --- NUEVO: Capturar fechas y formatos ---
             String ultFechaIg = "", ultFormatoIg = "";
             String ultFechaTk = "", ultFormatoTk = "";
             String ultFechaMkp = "";
@@ -83,7 +82,6 @@ public class PublicacionService {
                 joya.setEstadoRedes(redes);
             }
 
-            // Inyectar fechas capturadas
             if (enIg) { redes.setIgUltimaFecha(ultFechaIg); redes.setIgFormato(ultFormatoIg); }
             if (enTk) { redes.setTkUltimaFecha(ultFechaTk); redes.setTkFormato(ultFormatoTk); }
             if (enMkp) { redes.setMkpUltimaFecha(ultFechaMkp); }
@@ -187,10 +185,8 @@ public class PublicacionService {
                 publicacionJoyaRepository.deleteAll(pub.getRelaciones());
                 publicacionJoyaRepository.flush();
             }
-
             publicacionRepository.delete(pub);
             publicacionRepository.flush();
-
             for(Long jId : idsAfectados) recalcularEstadoJoya(jId);
         }
     }
@@ -198,17 +194,26 @@ public class PublicacionService {
     @Transactional
     public void limpiarHistoriasViejas() {
         List<Publicacion> todas = publicacionRepository.findAll();
-        LocalDate hace5Dias = LocalDate.now().minusDays(5);
+        LocalDate hoy = LocalDate.now();
+        LocalDate hace5Dias = hoy.minusDays(5);
+        LocalDate hace1Dia = hoy.minusDays(1); // Para WhatsApp
+
         for (Publicacion pub : todas) {
-            if ("Historia".equalsIgnoreCase(pub.getFormato()) &&
+            boolean esHistoriaIg = "Historia".equalsIgnoreCase(pub.getFormato()) &&
                     pub.getFechaPublicacion() != null &&
-                    pub.getFechaPublicacion().isBefore(hace5Dias)) {
+                    pub.getFechaPublicacion().isBefore(hace5Dias);
+
+            boolean esEstadoWsp = "WhatsApp".equalsIgnoreCase(pub.getPlataforma()) &&
+                    "Estado".equalsIgnoreCase(pub.getFormato()) &&
+                    pub.getFechaPublicacion() != null &&
+                    pub.getFechaPublicacion().isBefore(hace1Dia);
+
+            if (esHistoriaIg || esEstadoWsp) {
                 eliminarPublicacion(pub.getId());
             }
         }
     }
 
-    // --- NUEVO: Soporte para estadísticas de Historia ---
     @Transactional
     public Publicacion actualizarMetricas(Long id, Publicacion statsNuevas){
         Publicacion pubReal = publicacionRepository.findById(id).orElseThrow(() -> new RuntimeException("No encontrada"));
@@ -218,7 +223,6 @@ public class PublicacionService {
         pubReal.setGuardados(statsNuevas.getGuardados());
         pubReal.setCompartidos(statsNuevas.getCompartidos());
 
-        // Stats Historia
         pubReal.setReproduccionesHistoria(statsNuevas.getReproduccionesHistoria());
         pubReal.setLikesHistoria(statsNuevas.getLikesHistoria());
         pubReal.setRespuestasHistoria(statsNuevas.getRespuestasHistoria());
@@ -229,12 +233,10 @@ public class PublicacionService {
     @Transactional
     public Publicacion registrarMensajeMarketplace(Long id) {
         Publicacion pub = publicacionRepository.findById(id).orElseThrow(() -> new RuntimeException("No encontrada"));
-
         int msjsActuales = pub.getMensajesMarketplace() != null ? pub.getMensajesMarketplace() : 0;
         pub.setMensajesMarketplace(msjsActuales + 1);
 
         String fechaHoy = LocalDate.now().toString();
-
         if (pub.getRelaciones() != null) {
             for (PublicacionJoya pj : pub.getRelaciones()) {
                 Joya j = pj.getJoya();
@@ -243,6 +245,17 @@ public class PublicacionService {
                     estadoRedesRepository.save(j.getEstadoRedes());
                 }
             }
+        }
+        return publicacionRepository.save(pub);
+    }
+
+    // --- NUEVO: RESTAR MENSAJE ---
+    @Transactional
+    public Publicacion restarMensajeMarketplace(Long id) {
+        Publicacion pub = publicacionRepository.findById(id).orElseThrow(() -> new RuntimeException("No encontrada"));
+        int msjsActuales = pub.getMensajesMarketplace() != null ? pub.getMensajesMarketplace() : 0;
+        if (msjsActuales > 0) {
+            pub.setMensajesMarketplace(msjsActuales - 1);
         }
         return publicacionRepository.save(pub);
     }
